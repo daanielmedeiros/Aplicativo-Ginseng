@@ -18,7 +18,7 @@ export default function TabLayout() {
           borderTopColor: Colors.neutral[200],
           height: 60 + insets.bottom,
           paddingBottom: insets.bottom,
-          paddingTop: 8,
+          paddingTop: 1,
           elevation: 8,
           shadowColor: Colors.black,
           shadowOffset: { width: 0, height: -2 },
@@ -28,7 +28,7 @@ export default function TabLayout() {
         tabBarLabelStyle: {
           fontFamily: 'Inter-Medium',
           fontSize: 12,
-          marginTop: 0,
+          marginTop: 2,
           marginBottom: 4,
         },
       }}>
