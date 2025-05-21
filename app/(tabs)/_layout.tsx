@@ -47,37 +47,10 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="scan"
-        options={{
-          title: 'Escanear',
-          tabBarIcon: ({ color }) => (
-            <Plus
-              size={24}
-              color={Colors.white}
-              style={{
-                backgroundColor: Colors.primary[500],
-                borderRadius: 50,
-                padding: 12,
-                width: 48,
-                height: 48,
-                marginBottom: 24,
-              }}
-            />
-          ),
-        }}
-      />
-      <Tabs.Screen
         name="analytics"
         options={{
           title: 'Análises',
           tabBarIcon: ({ color, size }) => <BarChart2 size={size} color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="stores"
-        options={{
-          title: 'Lojas',
-          tabBarIcon: ({ color, size }) => <Store size={size} color={color} />,
         }}
       />
     </Tabs>
