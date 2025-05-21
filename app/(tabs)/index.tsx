@@ -50,7 +50,16 @@ export default function HomeScreen() {
   };
 
   useEffect(() => {
-    loadStores();
+    const initializeScreen = async () => {
+      try {
+        await loadStores();
+      } catch (error) {
+        console.error('Erro ao inicializar a tela:', error);
+        // Aqui você pode adicionar um estado para mostrar uma mensagem de erro na UI
+      }
+    };
+
+    initializeScreen();
   }, []);
 
   const loadStores = async () => {
@@ -60,6 +69,7 @@ export default function HomeScreen() {
       await loadTopSellingProducts(specificStores);
     } catch (error) {
       console.error('Erro ao buscar lojas:', error);
+      throw error; // Propaga o erro para ser tratado no nível superior
     }
   };
 

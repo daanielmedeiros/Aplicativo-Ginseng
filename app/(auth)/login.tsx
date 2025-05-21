@@ -24,7 +24,7 @@ export default function LoginScreen() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const handleLogin = () => {
+  const handleLogin = async () => {
     if (!email || !password) {
       setError('Por favor, preencha todos os campos');
       return;
@@ -33,11 +33,23 @@ export default function LoginScreen() {
     setLoading(true);
     setError('');
     
-    // Simulate login process
-    setTimeout(() => {
+    try {
+      // Simulate login process
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      
+      // Navegação com tratamento de erro
+      try {
+        await router.replace('/(tabs)');
+      } catch (navigationError) {
+        console.error('Erro na navegação:', navigationError);
+        setError('Erro ao navegar para a tela inicial. Tente novamente.');
+      }
+    } catch (error) {
+      console.error('Erro no login:', error);
+      setError('Erro ao fazer login. Tente novamente.');
+    } finally {
       setLoading(false);
-      router.replace('/(tabs)');
-    }, 1500);
+    }
   };
 
   return (
