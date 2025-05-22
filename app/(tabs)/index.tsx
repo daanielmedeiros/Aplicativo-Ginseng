@@ -163,16 +163,17 @@ export default function HomeScreen() {
               value="R$ 12.817.362,07"
               change="-26.99%"
               isPositive={false}
-              icon={<TrendingDown size={20} color={Colors.success[500]} />}
-              backgroundColor={Colors.success[50]}
+              icon={<TrendingDown size={20} color={Colors.error[500]} />}
+              backgroundColor={Colors.error[50]}
             />
             <DashboardCard 
               title="% Ruptura Causa Franqueado (IAF)"
               value="3,64%"
               change="+0,86%"
               isPositive={false}
-              icon={<TrendingUp size={20} color={Colors.success[500]} />}
-              backgroundColor={Colors.success[50]}
+              icon={<TrendingUp size={20} color={Colors.error[500]} />}
+              backgroundColor={Colors.error[50]}
+              invertColors={true}
             />
           </View>
         </Animated.View>
@@ -185,30 +186,21 @@ export default function HomeScreen() {
                 <Package size={20} color={Colors.primary[500]} />
               </View>
               <View style={styles.activityInfo}>
-                <Text style={styles.activityTitle}>Novo estoque</Text>
+                <Text style={styles.activityTitle}>Transferência Incluída PDV 20998</Text>
                 <Text style={styles.activityDescription}>84 produtos adicionados</Text>
               </View>
               <Text style={styles.activityTime}>13:45</Text>
             </TouchableOpacity>
             
-            <TouchableOpacity style={styles.activityCard}>
-              <View style={[styles.activityIconContainer, { backgroundColor: Colors.accent[50] }]}>
-                <Archive size={20} color={Colors.accent[500]} />
-              </View>
-              <View style={styles.activityInfo}>
-                <Text style={styles.activityTitle}>Inventário atualizado</Text>
-                <Text style={styles.activityDescription}>Loja Flamboyant #23</Text>
-              </View>
-              <Text style={styles.activityTime}>11:20</Text>
-            </TouchableOpacity>
+
             
             <TouchableOpacity style={styles.activityCard}>
               <View style={[styles.activityIconContainer, { backgroundColor: Colors.info[50] }]}>
-                <Truck size={20} color={Colors.info[500]} />
+                <Archive size={20} color={Colors.info[500]} />
               </View>
               <View style={styles.activityInfo}>
-                <Text style={styles.activityTitle}>Pedido enviado</Text>
-                <Text style={styles.activityDescription}>Perfumes linha Make B.</Text>
+                <Text style={styles.activityTitle}>Nota Faturada PDV 20998</Text>
+                <Text style={styles.activityDescription}>Previsão de entrega 22/05/2025</Text>
               </View>
               <Text style={styles.activityTime}>09:30</Text>
             </TouchableOpacity>

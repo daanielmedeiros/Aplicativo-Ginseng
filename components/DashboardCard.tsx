@@ -10,6 +10,7 @@ interface DashboardCardProps {
   isPositive: boolean;
   icon?: React.ReactNode;
   backgroundColor?: string;
+  invertColors?: boolean;
 }
 
 export function DashboardCard({ 
@@ -18,7 +19,8 @@ export function DashboardCard({
   change, 
   isPositive, 
   icon,
-  backgroundColor = Colors.neutral[50]
+  backgroundColor = Colors.neutral[50],
+  invertColors = false
 }: DashboardCardProps) {
   return (
     <View style={[styles.card, { backgroundColor }]}>
@@ -28,15 +30,25 @@ export function DashboardCard({
       </View>
       <Text style={styles.value}>{value}</Text>
       <View style={styles.changeContainer}>
-        {isPositive ? (
-          <ArrowUp size={14} color={Colors.success[500]} />
+        {invertColors ? (
+          !isPositive ? (
+            <ArrowUp size={14} color={Colors.error[500]} />
+          ) : (
+            <ArrowDown size={14} color={Colors.info[500]} />
+          )
         ) : (
-          <ArrowDown size={14} color={Colors.error[500]} />
+          isPositive ? (
+            <ArrowUp size={14} color={Colors.success[500]} />
+          ) : (
+            <ArrowDown size={14} color={Colors.error[500]} />
+          )
         )}
         <Text 
           style={[
             styles.changeText, 
-            isPositive ? styles.positiveChange : styles.negativeChange
+            invertColors 
+              ? (!isPositive ? styles.negativeChange : styles.positiveChange)
+              : (isPositive ? styles.positiveChange : styles.negativeChange)
           ]}
         >
           {change}

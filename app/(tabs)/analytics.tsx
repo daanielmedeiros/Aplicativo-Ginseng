@@ -33,7 +33,10 @@ export default function AnalyticsScreen() {
           <View style={styles.filterDropdown}>
             <TouchableOpacity 
               style={styles.dropdownButton}
-              onPress={() => setTimeFrameDropdownOpen(!timeFrameDropdownOpen)}
+              onPress={() => {
+                setTimeFrameDropdownOpen(!timeFrameDropdownOpen);
+                if (storeDropdownOpen) setStoreDropdownOpen(false);
+              }}
             >
               <Text style={styles.dropdownButtonText}>{selectedTimeFrame}</Text>
               <ChevronDown size={18} color={Colors.neutral[600]} />
@@ -70,7 +73,10 @@ export default function AnalyticsScreen() {
           <View style={styles.filterDropdown}>
             <TouchableOpacity 
               style={styles.dropdownButton}
-              onPress={() => setStoreDropdownOpen(!storeDropdownOpen)}
+              onPress={() => {
+                setStoreDropdownOpen(!storeDropdownOpen);
+                if (timeFrameDropdownOpen) setTimeFrameDropdownOpen(false);
+              }}
             >
               <Text style={styles.dropdownButtonText}>{selectedStore}</Text>
               <ChevronDown size={18} color={Colors.neutral[600]} />
@@ -78,7 +84,7 @@ export default function AnalyticsScreen() {
             
             {storeDropdownOpen && (
               <View style={styles.dropdownMenu}>
-                {['Todas as lojas', 'Loja Flamboyant #23', 'Loja Shopping Bougainville', 'Loja Goiânia Shopping'].map((store) => (
+                {['Todas as lojas', 'CD - 20998', 'Pitanguinha - 20996', 'Antares - 20996'].map((store) => (
                   <TouchableOpacity
                     key={store}
                     style={[
@@ -119,7 +125,7 @@ export default function AnalyticsScreen() {
             />
             
             <PerformanceMetric 
-              title="Clientes"
+              title="Base Revendedores"
               value="2.345"
               change="+5.2%"
               isPositive={true}
@@ -186,17 +192,6 @@ export default function AnalyticsScreen() {
             </View>
             <ChevronRight size={20} color={Colors.neutral[400]} />
           </TouchableOpacity>
-          
-          <TouchableOpacity style={styles.reportCard}>
-            <View style={[styles.reportIconContainer, { backgroundColor: Colors.info[50] }]}>
-              <Users size={24} color={Colors.info[500]} />
-            </View>
-            <View style={styles.reportInfo}>
-              <Text style={styles.reportTitle}>Relatório de clientes</Text>
-              <Text style={styles.reportDescription}>Análise demográfica e comportamental</Text>
-            </View>
-            <ChevronRight size={20} color={Colors.neutral[400]} />
-          </TouchableOpacity>
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -224,13 +219,14 @@ const styles = StyleSheet.create({
   filtersContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    marginBottom: 24,
+    zIndex: 1000,
     padding: 16,
     paddingBottom: 8,
   },
   filterDropdown: {
-    position: 'relative',
     width: '48%',
-    zIndex: 10,
+    zIndex: 1000,
   },
   dropdownButton: {
     flexDirection: 'row',
@@ -248,19 +244,19 @@ const styles = StyleSheet.create({
   },
   dropdownMenu: {
     position: 'absolute',
-    top: 44,
+    top: '100%',
     left: 0,
     right: 0,
     backgroundColor: Colors.white,
     borderRadius: 8,
-    borderWidth: 1,
-    borderColor: Colors.neutral[200],
+    padding: 8,
+    marginTop: 4,
     shadowColor: Colors.black,
-    shadowOffset: { width: 0, height: 4 },
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 5,
-    zIndex: 20,
+    shadowRadius: 4,
+    elevation: 4,
+    zIndex: 1000,
   },
   dropdownMenuItem: {
     paddingVertical: 10,
