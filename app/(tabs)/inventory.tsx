@@ -154,7 +154,7 @@ export default function InventoryScreen() {
           salesCurve: item.salescurve || '',
           coverageDays: item.coveragedays || 0,
           hasCoverage: item.hascoverage || false,
-          launch: item.launch || '',
+          launch: item.launch && `Lançamento ${item.launch}` || '',
           promotions: currentPromotions.map((promo: any) => ({
             description: promo.description,
             discountPercent: promo.discountPercent
