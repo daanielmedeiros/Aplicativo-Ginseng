@@ -159,18 +159,18 @@ export default function HomeScreen() {
           <Text style={styles.sectionTitle}>Resumo geral</Text>
           <View style={styles.cardsContainer}>
             <DashboardCard 
-              title="Vendas hoje"
-              value="R$ 24.532"
-              change="+12.5%"
-              isPositive={true}
-              icon={<TrendingUp size={20} color={Colors.success[500]} />}
+              title="Receita"
+              value="R$ 12.817.362,07"
+              change="-26.99%"
+              isPositive={false}
+              icon={<TrendingDown size={20} color={Colors.success[500]} />}
               backgroundColor={Colors.success[50]}
             />
             <DashboardCard 
               title="% Ruptura Causa Franqueado (IAF)"
               value="3,64%"
               change="+0,86%"
-              isPositive={true}
+              isPositive={false}
               icon={<TrendingUp size={20} color={Colors.success[500]} />}
               backgroundColor={Colors.success[50]}
             />
