@@ -167,12 +167,12 @@ export default function HomeScreen() {
               backgroundColor={Colors.success[50]}
             />
             <DashboardCard 
-              title="Itens em baixa"
-              value="42"
-              change="+7"
+              title="% Ruptura Causa Franqueado (IAF)"
+              value="3,64%"
+              change="+0,86%"
               isPositive={false}
-              icon={<TrendingDown size={20} color={Colors.error[500]} />}
-              backgroundColor={Colors.error[50]}
+              icon={<TrendingUp size={20} color={Colors.success[500]} />}
+              backgroundColor={Colors.success[50]}
             />
           </View>
         </Animated.View>
