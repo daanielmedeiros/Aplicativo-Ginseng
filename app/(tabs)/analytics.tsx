@@ -84,7 +84,7 @@ export default function AnalyticsScreen() {
             
             {storeDropdownOpen && (
               <View style={styles.dropdownMenu}>
-                {['Todas as lojas', 'CD1 - 20998', 'Pitanguinha - 20996', 'Antares - 20996'].map((store) => (
+                {['Todas as lojas', 'CD11 - 20998', 'Pitanguinha - 20996', 'Antares - 20996'].map((store) => (
                   <TouchableOpacity
                     key={store}
                     style={[
