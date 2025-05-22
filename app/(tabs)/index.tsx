@@ -170,7 +170,7 @@ export default function HomeScreen() {
               title="% Ruptura Causa Franqueado (IAF)"
               value="3,64%"
               change="+0,86%"
-              isPositive={false}
+              isPositive={true}
               icon={<TrendingUp size={20} color={Colors.success[500]} />}
               backgroundColor={Colors.success[50]}
             />
