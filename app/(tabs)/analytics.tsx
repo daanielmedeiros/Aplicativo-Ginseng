@@ -210,7 +210,7 @@ const styles = StyleSheet.create({
   },
   title: {
     fontFamily: 'Inter-SemiBold',
-    fontSize: 18,
+    fontSize: 20,
     color: Colors.neutral[900],
   },
   scrollContainer: {

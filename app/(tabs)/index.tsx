@@ -130,12 +130,12 @@ export default function HomeScreen() {
         <View style={styles.headerLeft}>
           <TouchableOpacity style={styles.avatarContainer}>
             <Image
-              source={require('@/assets/images/eu.jpg')}
+              source={require('@/assets/images/eu.png')}
               style={styles.avatar}
             />
           </TouchableOpacity>
           <View>
-            <Text style={styles.greeting}>Olá, Daniel</Text>
+            <Text style={styles.greeting}>Olá, Usuário</Text>
             <Text style={styles.date}>{getFormattedDate()}</Text>
           </View>
         </View>
@@ -156,22 +156,21 @@ export default function HomeScreen() {
         showsVerticalScrollIndicator={false}
       >
         <Animated.View entering={FadeInDown.duration(400).delay(100)}>
-          <Text style={styles.sectionTitle}>Resumo geral</Text>
+          <Text style={styles.sectionTitle}>Resumo Ruptura</Text>
           <View style={styles.cardsContainer}>
-            <DashboardCard 
-              title="Receita"
-              value="R$ 12.817.362,07"
-              change="-26.99%"
-              isPositive={false}
-              icon={<TrendingDown size={20} color={Colors.error[500]} />}
-              backgroundColor={Colors.error[50]}
-            />
-            <DashboardCard 
-              title="% Ruptura Causa Franqueado (IAF)"
+          <DashboardCard 
+              title="% Ruptura Causa Franqueado (IAF) Ciclo Atual"
               value="3,64%"
               change="+0,86%"
               isPositive={false}
-              icon={<TrendingUp size={20} color={Colors.error[500]} />}
+              backgroundColor={Colors.error[50]}
+              invertColors={true}
+            />
+            <DashboardCard 
+              title="% Ruptura Causa Franqueado (IAF) Total"
+              value="2,50%"
+              change="+0,86%"
+              isPositive={false}
               backgroundColor={Colors.error[50]}
               invertColors={true}
             />
@@ -327,6 +326,7 @@ const styles = StyleSheet.create({
   avatar: {
     width: '100%',
     height: '100%',
+    
   },
   scrollView: {
     flex: 1,

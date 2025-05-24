@@ -108,7 +108,7 @@ export function InventoryItem({ item, expanded = false, onPress }: InventoryItem
           
           <View style={styles.expandedRow}>
             <View style={styles.expandedColumn}>
-              <Text style={styles.expandedLabel}>Status</Text>
+              <Text style={styles.expandedLabel}>Status Indústria</Text>
               <Text style={styles.expandedValue}>{item.critico || 'Disponível'}</Text>
             </View>
             <View style={styles.expandedColumn}>
@@ -120,7 +120,7 @@ export function InventoryItem({ item, expanded = false, onPress }: InventoryItem
           <View style={styles.expandedRow}>
             <View style={styles.expandedColumn}>
               <Text style={styles.expandedLabel}>Cobertura</Text>
-              <Text style={styles.expandedValue}>{item.coverage}</Text>
+              <Text style={styles.expandedValue}>{item.coverage} Dias</Text>
             </View>
             <View style={styles.expandedColumn}>
               <Text style={styles.expandedLabel}>Dias Sem Venda</Text>

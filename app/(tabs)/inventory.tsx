@@ -40,7 +40,13 @@ const categories = [
   { id: '10070', name: 'EMBALAGENS' },
   { id: '10140', name: 'SABONETE CORPO' },
   { id: '10010', name: 'ACESSORIOS' }
-];
+].sort((a, b) => {
+  // Mantém 'Todos' sempre no início
+  if (a.id === 'all') return -1;
+  if (b.id === 'all') return 1;
+  // Ordena o resto por ordem alfabética
+  return a.name.localeCompare(b.name);
+});
 
 interface InventoryItemType {
   id: string;
@@ -70,6 +76,7 @@ interface InventoryItemType {
 interface Store {
   name: string;
   code: string;
+  displayName: string;
 }
 
 const categoryMapping: { [key: string]: string } = {
@@ -93,14 +100,92 @@ const categoryMapping: { [key: string]: string } = {
   "10010": "ACESSORIOS"
 };
 
+const lojasMap: { [key: string]: string } = {
+  "12522": "MACEIO SHOP EXPANSAO",
+  "12829": "JACINTINHO",
+  "20005": "LJ CANDEIAS CIMA",
+  "20006": "SAO SEBASTIAO",
+  "20009": "CANDEIAS BAIXO",
+  "20056": "SIMOES FILHO",
+  "20858": "SUPER GIRO",
+  "21068": "ATAKAREJO SIMOES FILHO",
+  "21624": "MIX MATEUS",
+  "21647": "CARAJAS",
+  "21007": "TÔ QUE TÔ",
+  "12818": "GB SERRARIA",
+  "12824": "GB TABULEIRO",
+  "12838": "RIO LARGO",
+  "20988": "HIB QUEIMADAS",
+  "21000": "HIB SANTALUZ",
+  "21375": "IPIRA HB",
+  "21381": "CAPIM GROSSO LJ",
+  "21383": "CAPIM GROSSO ER VD",
+  "14668": "HIPER ANTARES",
+  "20007": "MADRE DE DEUS",
+  "21382": "MAIRI",
+  "22548": "ER CAMPO ALEGRE",
+  "12817": "SHOPPING PATIO",
+  "20970": "ER SAO SEBASTIAO",
+  "20993": "ER CANDEIAS",
+  "20996": "ER ANTARES",
+  "20997": "ER PITANGUINHA",
+  "22541": "ER RIO LARGO",
+  "910173": "QDB PARQUE SHOPPING",
+  "910291": "QDB MACEIO SHOPPING",
+  "14617": "PARQUE SHOPPING",
+  "20969": "HIB MARECHAL DEODORO",
+  "20986": "HIB OLINDINA",
+  "20991": "HIB CAMPO ALEGRE",
+  "20994": "ER SIMOES FILHO",
+  "21001": "HIB RIO REAL",
+  "21278": "VD SOCORRO",
+  "21495": "VD BARRA DOS COQUEIROS",
+  "3546": "HIPER FAROL",
+  "12823": "PONTA VERDE",
+  "13427": "SHOPPING CIDADE",
+  "19103": "UNICOMPRA PONTA VERDE",
+  "20968": "HIB ITABAIANINHA",
+  "20989": "HIB ENTRE RIOS",
+  "20992": "ER CONCEICAO COITE",
+  "20995": "ER LAGARTO",
+  "20999": "HIB ESPLANADA",
+  "4560": "MACEIO SHOP TERREO",
+  "12820": "MARIO DE GUSMAO",
+  "12826": "ASSAI MANGABEIRAS",
+  "12828": "GB STELLA MARIS",
+  "12830": "LIVRAMENTO",
+  "20057": "CONCEICAO DO COITE",
+  "20441": "LAGARTO",
+  "21277": "GBARBOSA SOCORRO",
+  "21296": "SHOPPING PREMIO SOCORRO",
+  "5699": "MOREIRA LIMA",
+  "20998": "CD SERRARIA",
+  "23665": "LJ BOULEVARD SHOPPING",
+  "23712": "HIB CANDIDO SALES",
+  "23705": "QUIOSQUE SHOPPING CONQUISTA",
+  "23711": "ER VITORIA DA CONQUISTA",
+  "23704": "ER CONDEUBA",
+  "23707": "LJ BAIRRO BRASIL",
+  "23702": "LJ GALERIA PANVICON",
+  "23703": "ER BARRA DO CHOCA",
+  "23713": "LJ RUA ZEFERINO CORREIA",
+  "23708": "LJ BARRA DO CHOCA",
+  "23706": "LJ ASSAI VITORIA DA CONQUIS",
+  "23701": "LJ PRACA 9 DE NOVEMBRO",
+  "23709": "LJ SHOPPING CONQUISTA SUL",
+  "23475": "MIX MATEUS N"
+};
+
 export default function InventoryScreen() {
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [storeFilter, setStoreFilter] = useState('Selecione um PDV');
+  const [storeFilterDisplay, setStoreFilterDisplay] = useState('Selecione um PDV');
   const [inventoryData, setInventoryData] = useState<InventoryItemType[]>([]);
   const [stores, setStores] = useState<Store[]>([]);
   const [showStoreSelector, setShowStoreSelector] = useState(false);
+  const [storeSearchQuery, setStoreSearchQuery] = useState('');
   const [showBrandSelector, setShowBrandSelector] = useState(false);
   const [selectedBrand, setSelectedBrand] = useState('Todas as Marcas');
   const [selectedCritical, setSelectedCritical] = useState('Todos os Itens');
@@ -182,10 +267,15 @@ export default function InventoryScreen() {
         
         const storeList = data
           .filter((file: any) => file.name.endsWith('.json'))
-          .map((file: any) => ({
-            name: file.name,
-            code: file.name.replace('.json', '')
-          }));
+          .map((file: any) => {
+            const code = file.name.replace('.json', '');
+            const storeName = lojasMap[code];
+            return {
+              name: file.name,
+              code: code,
+              displayName: storeName ? `${code} - ${storeName}` : code
+            };
+          });
         
         setStores(storeList);
       } catch (error) {
@@ -219,6 +309,21 @@ export default function InventoryScreen() {
     })
     .sort((a, b) => b.salles - a.salles);
 
+  // Filter stores based on search query
+  const filteredStores = stores
+    .filter(store => {
+      const searchTerm = storeSearchQuery.toLowerCase();
+      const storeCode = store.code.toLowerCase();
+      const storeName = lojasMap[store.code]?.toLowerCase() || '';
+      return storeCode.includes(searchTerm) || storeName.includes(searchTerm);
+    })
+    .sort((a, b) => {
+      // Extrai os números dos códigos dos PDVs
+      const numA = parseInt(a.code.replace(/\D/g, ''));
+      const numB = parseInt(b.code.replace(/\D/g, ''));
+      return numA - numB;
+    });
+
   const handleItemPress = (itemId: string) => {
     setExpandedItemId(expandedItemId === itemId ? null : itemId);
   };
@@ -241,15 +346,9 @@ export default function InventoryScreen() {
             style={styles.storeSelectorButton}
             onPress={() => setShowStoreSelector(!showStoreSelector)}
           >
-            <Text style={styles.storeSelectorText}>{storeFilter}</Text>
+            <Text style={styles.storeSelectorText}>{storeFilterDisplay}</Text>
             <ChevronDown size={18} color={Colors.neutral[700]} />
           </TouchableOpacity>
-          
-          {currentCycle && (
-            <View style={styles.cycleContainer}>
-              <Text style={styles.cycleText}>Ciclo Atual: {currentCycle}</Text>
-            </View>
-          )}
         </View>
         
         <Modal
@@ -263,21 +362,43 @@ export default function InventoryScreen() {
             onPress={() => setShowStoreSelector(false)}
           >
             <View style={styles.storeList}>
+              <View style={styles.storeSearchContainer}>
+                <Search size={20} color={Colors.neutral[500]} style={styles.searchIcon} />
+                <TextInput
+                  style={styles.storeSearchInput}
+                  placeholder="Buscar PDV..."
+                  value={storeSearchQuery}
+                  onChangeText={setStoreSearchQuery}
+                />
+                {storeSearchQuery ? (
+                  <TouchableOpacity 
+                    style={styles.clearButton} 
+                    onPress={() => setStoreSearchQuery('')}
+                  >
+                    <Text style={styles.clearButtonText}>✕</Text>
+                  </TouchableOpacity>
+                ) : null}
+              </View>
               <ScrollView 
                 style={styles.storeScrollView}
                 showsVerticalScrollIndicator={true}
                 bounces={false}
               >
-                {stores.map((store) => (
+                {filteredStores.map((store, index) => (
                   <TouchableOpacity 
                     key={store.code}
-                    style={styles.storeItem}
+                    style={[
+                      styles.storeItem,
+                      index === filteredStores.length - 1 && styles.lastStoreItem
+                    ]}
                     onPress={() => {
                       setStoreFilter(store.code);
+                      setStoreFilterDisplay(store.displayName);
                       setShowStoreSelector(false);
+                      setStoreSearchQuery('');
                     }}
                   >
-                    <Text style={styles.storeItemText}>{store.code}</Text>
+                    <Text style={styles.storeItemText}>{store.displayName}</Text>
                   </TouchableOpacity>
                 ))}
               </ScrollView>
@@ -383,81 +504,113 @@ export default function InventoryScreen() {
           style={styles.modalOverlay}
           onPress={() => setShowBrandSelector(false)}
         >
-          <View style={styles.storeList}>
-            <Text style={styles.modalTitle}>Filtros</Text>
+          <View style={styles.filterModal}>
+            <View style={styles.filterHeader}>
+              <Text style={styles.filterTitle}>Filtros</Text>
+              <TouchableOpacity 
+                onPress={() => setShowBrandSelector(false)}
+                style={styles.closeButton}
+              >
+                <Text style={styles.closeButtonText}>✕</Text>
+              </TouchableOpacity>
+            </View>
+
             <ScrollView 
-              style={styles.storeScrollView}
+              style={styles.filterScrollView}
               showsVerticalScrollIndicator={true}
               bounces={false}
             >
-              <Text style={styles.filterSectionTitle}>Marca</Text>
-              <TouchableOpacity 
-                style={styles.storeItem}
-                onPress={() => {
-                  setSelectedBrand('Todas as Marcas');
-                  setShowBrandSelector(false);
-                }}
-              >
-                <Text style={[
-                  styles.storeItemText,
-                  selectedBrand === 'Todas as Marcas' && styles.selectedItemText
-                ]}>Todas as Marcas</Text>
-              </TouchableOpacity>
-              {Array.from(new Set(inventoryData.map(item => item.brandGroupCode))).map((brand) => (
-                <TouchableOpacity 
-                  key={brand}
-                  style={styles.storeItem}
-                  onPress={() => {
-                    setSelectedBrand(brand);
-                    setShowBrandSelector(false);
-                  }}
-                >
-                  <Text style={[
-                    styles.storeItemText,
-                    selectedBrand === brand && styles.selectedItemText
-                  ]}>{brand}</Text>
-                </TouchableOpacity>
-              ))}
+              <View style={styles.filterSection}>
+                <Text style={styles.filterSectionTitle}>Status do Item</Text>
+                <View style={styles.filterOptions}>
+                  <TouchableOpacity 
+                    style={[
+                      styles.filterOption,
+                      selectedCritical === 'Todos os Itens' && styles.filterOptionActive
+                    ]}
+                    onPress={() => {
+                      setSelectedCritical('Todos os Itens');
+                      setShowBrandSelector(false);
+                    }}
+                  >
+                    <Text style={[
+                      styles.filterOptionText,
+                      selectedCritical === 'Todos os Itens' && styles.filterOptionTextActive
+                    ]}>Todos os Itens</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity 
+                    style={[
+                      styles.filterOption,
+                      selectedCritical === 'Itens Críticos' && styles.filterOptionActive
+                    ]}
+                    onPress={() => {
+                      setSelectedCritical('Itens Críticos');
+                      setShowBrandSelector(false);
+                    }}
+                  >
+                    <Text style={[
+                      styles.filterOptionText,
+                      selectedCritical === 'Itens Críticos' && styles.filterOptionTextActive
+                    ]}>Itens Críticos Indústria</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity 
+                    style={[
+                      styles.filterOption,
+                      selectedCritical === 'Itens Normais' && styles.filterOptionActive
+                    ]}
+                    onPress={() => {
+                      setSelectedCritical('Itens Normais');
+                      setShowBrandSelector(false);
+                    }}
+                  >
+                    <Text style={[
+                      styles.filterOptionText,
+                      selectedCritical === 'Itens Normais' && styles.filterOptionTextActive
+                    ]}>Itens Disponíveis</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
 
               <View style={styles.filterDivider} />
 
-              <Text style={styles.filterSectionTitle}>Status do Item</Text>
-              <TouchableOpacity 
-                style={styles.storeItem}
-                onPress={() => {
-                  setSelectedCritical('Todos os Itens');
-                  setShowBrandSelector(false);
-                }}
-              >
-                <Text style={[
-                  styles.storeItemText,
-                  selectedCritical === 'Todos os Itens' && styles.selectedItemText
-                ]}>Todos os Itens</Text>
-              </TouchableOpacity>
-              <TouchableOpacity 
-                style={styles.storeItem}
-                onPress={() => {
-                  setSelectedCritical('Itens Críticos');
-                  setShowBrandSelector(false);
-                }}
-              >
-                <Text style={[
-                  styles.storeItemText,
-                  selectedCritical === 'Itens Críticos' && styles.selectedItemText
-                ]}>Itens Críticos</Text>
-              </TouchableOpacity>
-              <TouchableOpacity 
-                style={styles.storeItem}
-                onPress={() => {
-                  setSelectedCritical('Itens Normais');
-                  setShowBrandSelector(false);
-                }}
-              >
-                <Text style={[
-                  styles.storeItemText,
-                  selectedCritical === 'Itens Normais' && styles.selectedItemText
-                ]}>Itens Normais</Text>
-              </TouchableOpacity>
+              <View style={styles.filterSection}>
+                <Text style={styles.filterSectionTitle}>Marca</Text>
+                <View style={styles.filterOptions}>
+                  <TouchableOpacity 
+                    style={[
+                      styles.filterOption,
+                      selectedBrand === 'Todas as Marcas' && styles.filterOptionActive
+                    ]}
+                    onPress={() => {
+                      setSelectedBrand('Todas as Marcas');
+                      setShowBrandSelector(false);
+                    }}
+                  >
+                    <Text style={[
+                      styles.filterOptionText,
+                      selectedBrand === 'Todas as Marcas' && styles.filterOptionTextActive
+                    ]}>Todas as Marcas</Text>
+                  </TouchableOpacity>
+                  {Array.from(new Set(inventoryData.map(item => item.brandGroupCode))).map((brand) => (
+                    <TouchableOpacity 
+                      key={brand}
+                      style={[
+                        styles.filterOption,
+                        selectedBrand === brand && styles.filterOptionActive
+                      ]}
+                      onPress={() => {
+                        setSelectedBrand(brand);
+                        setShowBrandSelector(false);
+                      }}
+                    >
+                      <Text style={[
+                        styles.filterOptionText,
+                        selectedBrand === brand && styles.filterOptionTextActive
+                      ]}>{brand}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
             </ScrollView>
           </View>
         </Pressable>
@@ -482,7 +635,7 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontFamily: 'Inter-SemiBold',
-    fontSize: 18,
+    fontSize: 20,
     color: Colors.neutral[900],
   },
   filterButton: {
@@ -507,23 +660,20 @@ const styles = StyleSheet.create({
   storeSelectorButton: {
     flexDirection: 'row',
     alignItems: 'center',
+    backgroundColor: Colors.neutral[100],
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: Colors.neutral[200],
+    flex: 1,
   },
   storeSelectorText: {
     fontFamily: 'Inter-Medium',
     fontSize: 15,
     color: Colors.neutral[700],
-    marginRight: 4,
-  },
-  cycleContainer: {
-    backgroundColor: Colors.primary[50],
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 6,
-  },
-  cycleText: {
-    fontFamily: 'Inter-Medium',
-    fontSize: 14,
-    color: Colors.primary[700],
+    marginRight: 8,
+    flex: 1,
   },
   searchContainer: {
     flexDirection: 'row',
@@ -615,7 +765,7 @@ const styles = StyleSheet.create({
   },
   storeList: {
     backgroundColor: Colors.white,
-    borderRadius: 8,
+    borderRadius: 12,
     shadowColor: Colors.black,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
@@ -629,14 +779,17 @@ const styles = StyleSheet.create({
     maxHeight: 600,
   },
   storeItem: {
-    paddingVertical: 12,
+    paddingVertical: 14,
     paddingHorizontal: 16,
     borderBottomWidth: 1,
     borderBottomColor: Colors.neutral[100],
   },
+  lastStoreItem: {
+    borderBottomWidth: 0,
+  },
   storeItemText: {
     fontFamily: 'Inter-Regular',
-    fontSize: 14,
+    fontSize: 15,
     color: Colors.neutral[700],
   },
   modalOverlay: {
@@ -646,28 +799,99 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingTop: 80,
   },
-  modalTitle: {
-    fontFamily: 'Inter-SemiBold',
-    fontSize: 16,
-    color: Colors.neutral[900],
+  filterModal: {
+    backgroundColor: Colors.white,
+    borderRadius: 16,
+    shadowColor: Colors.black,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+    width: '90%',
+    marginTop: 50,
+    maxHeight: '80%',
+  },
+  filterHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     padding: 16,
     borderBottomWidth: 1,
     borderBottomColor: Colors.neutral[100],
   },
+  filterTitle: {
+    fontFamily: 'Inter-SemiBold',
+    fontSize: 18,
+    color: Colors.neutral[900],
+  },
+  closeButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: Colors.neutral[100],
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  closeButtonText: {
+    fontSize: 16,
+    color: Colors.neutral[700],
+  },
+  filterScrollView: {
+    padding: 16,
+  },
+  filterSection: {
+    marginBottom: 24,
+  },
   filterSectionTitle: {
     fontFamily: 'Inter-SemiBold',
+    fontSize: 16,
+    color: Colors.neutral[800],
+    marginBottom: 12,
+  },
+  filterOptions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  filterOption: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    backgroundColor: Colors.neutral[100],
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: Colors.neutral[200],
+  },
+  filterOptionActive: {
+    backgroundColor: Colors.primary[500],
+    borderColor: Colors.primary[500],
+  },
+  filterOptionText: {
+    fontFamily: 'Inter-Medium',
     fontSize: 14,
     color: Colors.neutral[700],
-    padding: 16,
-    paddingBottom: 8,
+  },
+  filterOptionTextActive: {
+    color: Colors.white,
   },
   filterDivider: {
     height: 1,
     backgroundColor: Colors.neutral[100],
-    marginVertical: 8,
+    marginVertical: 16,
   },
-  selectedItemText: {
-    color: Colors.primary[700],
-    fontFamily: 'Inter-SemiBold',
+  storeSearchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.neutral[100],
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.neutral[200],
+  },
+  storeSearchInput: {
+    flex: 1,
+    height: 40,
+    fontFamily: 'Inter-Regular',
+    fontSize: 15,
+    color: Colors.neutral[900],
   },
 });

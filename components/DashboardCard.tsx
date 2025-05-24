@@ -28,31 +28,33 @@ export function DashboardCard({
         <Text style={styles.title}>{title}</Text>
         {icon && <View style={styles.iconContainer}>{icon}</View>}
       </View>
-      <Text style={styles.value}>{value}</Text>
-      <View style={styles.changeContainer}>
-        {invertColors ? (
-          !isPositive ? (
-            <ArrowUp size={14} color={Colors.error[500]} />
+      <View style={styles.valueContainer}>
+        <Text style={styles.value}>{value}</Text>
+        <View style={styles.changeContainer}>
+          {invertColors ? (
+            !isPositive ? (
+              <ArrowUp size={14} color={Colors.error[500]} />
+            ) : (
+              <ArrowDown size={14} color={Colors.info[500]} />
+            )
           ) : (
-            <ArrowDown size={14} color={Colors.info[500]} />
-          )
-        ) : (
-          isPositive ? (
-            <ArrowUp size={14} color={Colors.success[500]} />
-          ) : (
-            <ArrowDown size={14} color={Colors.error[500]} />
-          )
-        )}
-        <Text 
-          style={[
-            styles.changeText, 
-            invertColors 
-              ? (!isPositive ? styles.negativeChange : styles.positiveChange)
-              : (isPositive ? styles.positiveChange : styles.negativeChange)
-          ]}
-        >
-          {change}
-        </Text>
+            isPositive ? (
+              <ArrowUp size={14} color={Colors.success[500]} />
+            ) : (
+              <ArrowDown size={14} color={Colors.error[500]} />
+            )
+          )}
+          <Text 
+            style={[
+              styles.changeText, 
+              invertColors 
+                ? (!isPositive ? styles.negativeChange : styles.positiveChange)
+                : (isPositive ? styles.positiveChange : styles.negativeChange)
+            ]}
+          >
+            {change}
+          </Text>
+        </View>
       </View>
     </View>
   );
@@ -64,17 +66,20 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 16,
     marginBottom: 16,
+    minHeight: 120,
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
+    alignItems: 'flex-start',
+    marginBottom: 16,
   },
   title: {
     fontFamily: 'Inter-Medium',
     fontSize: 14,
     color: Colors.neutral[700],
+    flex: 1,
+    marginRight: 8,
   },
   iconContainer: {
     width: 32,
@@ -82,6 +87,10 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     justifyContent: 'center',
     alignItems: 'center',
+    marginLeft: -25,
+  },
+  valueContainer: {
+    marginTop: 'auto',
   },
   value: {
     fontFamily: 'Inter-SemiBold',
