@@ -8,6 +8,11 @@
     "scheme": "myapp",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/images/icon-logo.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#04506B"
+    },
     "ios": {
       "supportsTablet": true
     },

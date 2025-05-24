@@ -17,8 +17,8 @@ import Colors from '@/constants/Colors';
 import { CommonStyles } from '@/constants/Styles';
 
 export default function LoginScreen() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState('usuario@grupoginseng.com.br');
+  const [password, setPassword] = useState('123456');
   const [emailFocused, setEmailFocused] = useState(false);
   const [passwordFocused, setPasswordFocused] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -144,7 +144,7 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.white,
+    backgroundColor: '#04506B',
   },
   scrollContent: {
     flexGrow: 1,
@@ -165,13 +165,13 @@ const styles = StyleSheet.create({
   appName: {
     fontFamily: 'Inter-SemiBold',
     fontSize: 28,
-    color: Colors.primary[700],
+    color: Colors.white,
     marginBottom: 8,
   },
   tagline: {
     fontFamily: 'Inter-Regular',
     fontSize: 16,
-    color: Colors.neutral[600],
+    color: Colors.neutral[200],
     textAlign: 'center',
   },
   formContainer: {
@@ -184,6 +184,7 @@ const styles = StyleSheet.create({
   input: {
     paddingLeft: 48,
     marginBottom: 0,
+    backgroundColor: Colors.white,
   },
   inputIcon: {
     position: 'absolute',
@@ -198,7 +199,7 @@ const styles = StyleSheet.create({
   forgotPasswordText: {
     fontFamily: 'Inter-Medium',
     fontSize: 14,
-    color: Colors.primary[600],
+    color: Colors.white,
   },
   loginButton: {
     marginBottom: 16,
@@ -215,7 +216,7 @@ const styles = StyleSheet.create({
   versionText: {
     fontFamily: 'Inter-Regular',
     fontSize: 12,
-    color: Colors.neutral[500],
+    color: Colors.neutral[200],
     textAlign: 'center',
     marginTop: 32,
   },

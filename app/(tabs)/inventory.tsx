@@ -333,10 +333,18 @@ export default function InventoryScreen() {
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Estoque</Text>
         <TouchableOpacity 
-          style={styles.filterButton}
+          style={[
+            styles.filterButton,
+            (selectedBrand !== 'Todas as Marcas' || selectedCritical !== 'Todos os Itens') && styles.filterButtonActive
+          ]}
           onPress={() => setShowBrandSelector(true)}
         >
-          <SlidersHorizontal size={20} color={Colors.neutral[700]} />
+          <SlidersHorizontal 
+            size={20} 
+            color={(selectedBrand !== 'Todas as Marcas' || selectedCritical !== 'Todos os Itens') 
+              ? Colors.white 
+              : Colors.white} 
+          />
         </TouchableOpacity>
       </View>
 
@@ -630,21 +638,25 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.neutral[100],
+    backgroundColor: '#04506B',
   },
   headerTitle: {
     fontFamily: 'Inter-SemiBold',
     fontSize: 20,
-    color: Colors.neutral[900],
+    color: Colors.white,
   },
   filterButton: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: Colors.neutral[100],
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  filterButtonActive: {
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    borderWidth: 1,
+    borderColor: Colors.white,
   },
   storeSelector: {
     paddingHorizontal: 16,
