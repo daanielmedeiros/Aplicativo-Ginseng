@@ -191,60 +191,45 @@ export default function InventoryScreen() {
   const [selectedCritical, setSelectedCritical] = useState('Todos os Itens');
   const [expandedItemId, setExpandedItemId] = useState<string | null>(null);
   const [currentCycle, setCurrentCycle] = useState('');
+  const [selectedLaunch, setSelectedLaunch] = useState('Todos os Lançamentos');
 
   // Função para carregar os produtos do PDV selecionado
   const loadInventoryData = async (pdvCode: string) => {
     try {
       setLoading(true);
-      const response = await fetch(`https://api-final-s3hq.onrender.com/files/${pdvCode}`);
+      const response = await fetch(`http://187.72.204.233:4000/draft/${pdvCode}`);
       const responseData = await response.json();
       
-      // Extrai o ciclo atual
-      const cycle = responseData.data?.currentCycle || '';
-      setCurrentCycle(cycle);
-      
-      // Acessando o array de produtos dentro do objeto data
-      const products = responseData.data?.products || [];
-      
-      const mappedData = products.map((item: any) => {
-        // Formata a data do savedAt
-        const savedAt = responseData.data?.savedAt || '';
-        const formattedDate = savedAt ? savedAt.split(' ')[0].split('-').reverse().join('/') : '';
-        
-        // Filtra as promoções do ciclo atual
-        const currentPromotions = item.promotions?.filter((promo: any) => 
-          promo.cycle === responseData.data?.currentCycle
-        ) || [];
-        
+      const mappedData = responseData.map((item: any) => {
         return {
           id: item.code || '',
           name: item.description || '',
-          image: `https://vdchatbotapi-resources.grupoboticario.com.br/products/${item.code}.png`,
-          category: categoryMapping[item.codCategory] || 'OUTROS',
-          codCategory: item.codCategory || '',
+          image: `https://sgi.e-boticario.com.br/Paginas/Imagens/Produtos/${item.code}g.jpg`,
+          category: categoryMapping[item.codcategory] || 'OUTROS',
+          codCategory: item.codcategory || '',
           price: `R$ ${Number(item.pricesellin || 0).toFixed(2)}`,
-          quantity: Number(item.stock.actual || 0),
-          status: Number(item.stock.actual || 0) > 0 ? 'Em Estoque' : 'Sem Estoque',
-          salles: Number(item.sales.currentCycleSales || 0),
-          inTransit: Number(item.stock.inTransit || 0),
+          quantity: Number(item.stock_actual || 0),
+          status: Number(item.stock_actual || 0) > 0 ? 'Em Estoque' : 'Sem Estoque',
+          salles: Number(item.currentcyclesales || 0),
+          inTransit: Number(item.stock_intransit || 0),
           barcode: item.code || '',
           sku: item.code || '',
-          critico: item.criticalItem.dtProvidedRegularization || '',
+          critico: item.criticalitem_dtprovidedregularization || '',
           code: item.code || '',
-          lastUpdate: formattedDate,
-          daysWithoutSales: item.daysWithoutSales || 0,
-          coverage: item.coverageDays || '',
+          lastUpdate: new Date().toLocaleDateString('pt-BR'),
+          daysWithoutSales: item.dayswithoutsales || 0,
+          coverage: item.coveragedays || '',
           subcategory: item.codsubcategory || '',
           brand: item.brandgroupcode || '',
           salesCurve: item.salescurve || '',
           coverageDays: item.coveragedays || 0,
           hasCoverage: item.hascoverage || false,
           launch: item.launch && `Lançamento ${item.launch}` || '',
-          promotions: currentPromotions.map((promo: any) => ({
-            description: promo.description,
-            discountPercent: promo.discountPercent
-          })),
-          brandGroupCode: item.brandGroupCode || ''
+          promotions: item.promotions_description ? [{
+            description: item.promotions_description,
+            discountPercent: Number(item.promotions_discountpercent || 0)
+          }] : [],
+          brandGroupCode: item.brandgroupcode || ''
         };
       });
 
@@ -252,7 +237,6 @@ export default function InventoryScreen() {
     } catch (error) {
       console.error('Erro ao carregar produtos:', error);
       setInventoryData([]);
-      setCurrentCycle('');
     } finally {
       setLoading(false);
     }
@@ -262,20 +246,18 @@ export default function InventoryScreen() {
   useEffect(() => {
     const fetchStores = async () => {
       try {
-        const response = await fetch('https://api-final-s3hq.onrender.com/files/');
+        const response = await fetch('http://187.72.204.233:4000/draft/');
         const data = await response.json();
         
-        const storeList = data
-          .filter((file: any) => file.name.endsWith('.json'))
-          .map((file: any) => {
-            const code = file.name.replace('.json', '');
-            const storeName = lojasMap[code];
-            return {
-              name: file.name,
-              code: code,
-              displayName: storeName ? `${code} - ${storeName}` : code
-            };
-          });
+        const storeList = data.map((item: { loja_id: string }) => {
+          const code = item.loja_id;
+          const storeName = lojasMap[code];
+          return {
+            name: `${code}.json`,
+            code: code,
+            displayName: storeName ? `${code} - ${storeName}` : code
+          };
+        });
         
         setStores(storeList);
       } catch (error) {
@@ -293,7 +275,7 @@ export default function InventoryScreen() {
     }
   }, [storeFilter]);
 
-  // Filter data based on search query, category and brand
+  // Filter data based on search query, category, brand and launch
   const filteredData = inventoryData
     .filter(item => {
       const searchTerm = searchQuery.toLowerCase();
@@ -305,7 +287,9 @@ export default function InventoryScreen() {
       const matchesCritical = selectedCritical === 'Todos os Itens' || 
         (selectedCritical === 'Itens Críticos' && item.critico) ||
         (selectedCritical === 'Itens Normais' && !item.critico);
-      return matchesSearch && matchesCategory && matchesBrand && matchesCritical;
+      const matchesLaunch = selectedLaunch === 'Todos os Lançamentos' || 
+        (item.launch && item.launch === selectedLaunch);
+      return matchesSearch && matchesCategory && matchesBrand && matchesCritical && matchesLaunch;
     })
     .sort((a, b) => b.salles - a.salles);
 
@@ -328,6 +312,17 @@ export default function InventoryScreen() {
     setExpandedItemId(expandedItemId === itemId ? null : itemId);
   };
 
+  // Função para obter lançamentos únicos
+  const getUniqueLaunches = () => {
+    const launches = new Set<string>();
+    inventoryData.forEach(item => {
+      if (item.launch) {
+        launches.add(item.launch);
+      }
+    });
+    return Array.from(launches).sort();
+  };
+
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
@@ -335,13 +330,17 @@ export default function InventoryScreen() {
         <TouchableOpacity 
           style={[
             styles.filterButton,
-            (selectedBrand !== 'Todas as Marcas' || selectedCritical !== 'Todos os Itens') && styles.filterButtonActive
+            (selectedBrand !== 'Todas as Marcas' || 
+             selectedCritical !== 'Todos os Itens' || 
+             selectedLaunch !== 'Todos os Lançamentos') && styles.filterButtonActive
           ]}
           onPress={() => setShowBrandSelector(true)}
         >
           <SlidersHorizontal 
             size={20} 
-            color={(selectedBrand !== 'Todas as Marcas' || selectedCritical !== 'Todos os Itens') 
+            color={(selectedBrand !== 'Todas as Marcas' || 
+                   selectedCritical !== 'Todos os Itens' || 
+                   selectedLaunch !== 'Todos os Lançamentos') 
               ? Colors.white 
               : Colors.white} 
           />
@@ -615,6 +614,47 @@ export default function InventoryScreen() {
                         styles.filterOptionText,
                         selectedBrand === brand && styles.filterOptionTextActive
                       ]}>{brand}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+
+              <View style={styles.filterDivider} />
+
+              <View style={styles.filterSection}>
+                <Text style={styles.filterSectionTitle}>Lançamentos</Text>
+                <View style={styles.filterOptions}>
+                  <TouchableOpacity 
+                    style={[
+                      styles.filterOption,
+                      selectedLaunch === 'Todos os Lançamentos' && styles.filterOptionActive
+                    ]}
+                    onPress={() => {
+                      setSelectedLaunch('Todos os Lançamentos');
+                      setShowBrandSelector(false);
+                    }}
+                  >
+                    <Text style={[
+                      styles.filterOptionText,
+                      selectedLaunch === 'Todos os Lançamentos' && styles.filterOptionTextActive
+                    ]}>Todos os Lançamentos</Text>
+                  </TouchableOpacity>
+                  {getUniqueLaunches().map((launch) => (
+                    <TouchableOpacity 
+                      key={launch}
+                      style={[
+                        styles.filterOption,
+                        selectedLaunch === launch && styles.filterOptionActive
+                      ]}
+                      onPress={() => {
+                        setSelectedLaunch(launch);
+                        setShowBrandSelector(false);
+                      }}
+                    >
+                      <Text style={[
+                        styles.filterOptionText,
+                        selectedLaunch === launch && styles.filterOptionTextActive
+                      ]}>{launch}</Text>
                     </TouchableOpacity>
                   ))}
                 </View>

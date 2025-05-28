@@ -7,7 +7,10 @@ import {
   TouchableOpacity, 
   Image, 
   ActivityIndicator,
-  Linking 
+  Linking,
+  Modal,
+  Pressable,
+  FlatList
 } from 'react-native';
 import { useColorScheme } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
@@ -54,27 +57,27 @@ interface BulletinResponse {
   items: BulletinItem[];
 }
 
-interface CachedProductData {
-  data: any;
-  timestamp: number;
-  storeId: string;
-}
+type AvatarKey = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9;
 
-interface CachedRuptureData {
-  data: {
-    totalDisruptionPercentage: string;
-    franchiseDisruptionPercentage: string;
-    industryDisruptionPercentage: string;
-  };
-  timestamp: number;
-}
+const avatarImages: Record<AvatarKey, any> = {
+  1: require('@/assets/images/avatar/avatar1.png'),
+  2: require('@/assets/images/avatar/avatar2.png'),
+  3: require('@/assets/images/avatar/avatar3.png'),
+  4: require('@/assets/images/avatar/avatar4.png'),
+  5: require('@/assets/images/avatar/avatar5.png'),
+  6: require('@/assets/images/avatar/avatar6.png'),
+  7: require('@/assets/images/avatar/avatar7.png'),
+  8: require('@/assets/images/avatar/avatar8.png'),
+  9: require('@/assets/images/avatar/avatar9.png'),
+};
+
+const defaultAvatar = require('@/assets/images/avatar/padrao.png');
 
 export default function HomeScreen() {
   const colorScheme = useColorScheme();
   const [loading, setLoading] = useState(true);
   const [loadingCommunications, setLoadingCommunications] = useState(true);
   const [topSellingProducts, setTopSellingProducts] = useState<TopSellingProduct[]>([]);
-  const [stores, setStores] = useState<string[]>([]);
   const [storePerformance, setStorePerformance] = useState<StorePerformance[]>([]);
   const [bearerToken, setBearerToken] = useState<string>('');
   const [loadingToken, setLoadingToken] = useState(true);
@@ -90,6 +93,10 @@ export default function HomeScreen() {
     industryDisruptionPercentage: string;
   } | null>(null);
   const [loadingCurrentCycle, setLoadingCurrentCycle] = useState(true);
+  const [showAvatarModal, setShowAvatarModal] = useState(false);
+  const [selectedAvatar, setSelectedAvatar] = useState<AvatarKey | null>(null);
+
+  const avatars: AvatarKey[] = [1, 2, 3, 4, 5, 6, 7, 8, 9];
 
   const getFormattedDate = () => {
     const date = new Date();
@@ -111,7 +118,7 @@ export default function HomeScreen() {
   const fetchBearerToken = async () => {
     try {
       setLoadingToken(true);
-      const response = await fetch('https://api-final-s3hq.onrender.com/bearer-token');
+      const response = await fetch('http://187.72.204.233:4000/tokens');
       const data = await response.json();
       if (data && data.length > 0) {
         const token = data[0].token;
@@ -183,7 +190,7 @@ export default function HomeScreen() {
   useEffect(() => {
     const initializeScreen = async () => {
       try {
-        await loadStores();
+        await loadTopSellingProducts();
       } catch (error) {
         console.error('Erro ao inicializar a tela:', error);
       }
@@ -192,139 +199,20 @@ export default function HomeScreen() {
     initializeScreen();
   }, []);
 
-  const loadStores = async () => {
-    try {
-      const specificStores = ['20998', '20997', '20996'];
-      setStores(specificStores);
-      await loadTopSellingProducts(specificStores);
-    } catch (error) {
-      console.error('Erro ao buscar lojas:', error);
-      throw error; // Propaga o erro para ser tratado no nível superior
-    }
-  };
-
-  const shouldUpdateCache = (timestamp: number): boolean => {
-    const now = new Date();
-    const cacheDate = new Date(timestamp);
-    
-    // Converte para horário de Brasília (UTC-3)
-    const brasiliaTime = new Date(now.toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }));
-    const brasiliaHours = brasiliaTime.getHours();
-    
-    // Se for antes das 9h em Brasília, não atualiza
-    if (brasiliaHours < 9) {
-      return false;
-    }
-    
-    // Se for um dia diferente, atualiza
-    return now.getDate() !== cacheDate.getDate() ||
-           now.getMonth() !== cacheDate.getMonth() ||
-           now.getFullYear() !== cacheDate.getFullYear();
-  };
-
-  const getCachedProducts = async (storeId: string): Promise<any | null> => {
-    try {
-      const cachedData = await AsyncStorage.getItem(`products_${storeId}`);
-      if (cachedData) {
-        const parsedData: CachedProductData = JSON.parse(cachedData);
-        
-        // Verifica se precisa atualizar o cache
-        if (!shouldUpdateCache(parsedData.timestamp)) {
-          return parsedData.data;
-        }
-      }
-      return null;
-    } catch (error) {
-      console.error('Erro ao ler cache:', error);
-      return null;
-    }
-  };
-
-  const setCachedProducts = async (storeId: string, data: any): Promise<void> => {
-    try {
-      const cacheData: CachedProductData = {
-        data,
-        timestamp: Date.now(),
-        storeId
-      };
-      await AsyncStorage.setItem(`products_${storeId}`, JSON.stringify(cacheData));
-    } catch (error) {
-      console.error('Erro ao salvar cache:', error);
-    }
-  };
-
-  const loadTopSellingProducts = async (storeList: string[]) => {
+  const loadTopSellingProducts = async () => {
     try {
       setLoading(true);
-      const salesMap = new Map<string, { name: string; image: string; totalSales: number }>();
+      const response = await fetch('http://187.72.204.233:4000/bestsellers');
+      const data = await response.json();
+      
+      const mappedProducts = data.map((product: any) => ({
+        code: product.code,
+        name: product.description,
+        image: `https://sgi.e-boticario.com.br/Paginas/Imagens/Produtos/${product.code}g.jpg`,
+        totalSales: product.total_vendas
+      }));
 
-      // Carregar dados dos PDVs específicos
-      for (const store of storeList) {
-        // Tenta obter dados do cache primeiro
-        const cachedData = await getCachedProducts(store);
-        
-        if (cachedData) {
-          // Usa os dados do cache
-          const products = cachedData.products || [];
-          products.forEach((product: any) => {
-            const code = product.code;
-            const currentSales = Number(product.sales?.currentCycleSales || 0);
-            
-            if (salesMap.has(code)) {
-              const existing = salesMap.get(code)!;
-              salesMap.set(code, {
-                ...existing,
-                totalSales: existing.totalSales + currentSales
-              });
-            } else {
-              salesMap.set(code, {
-                name: product.description || '',
-                image: `https://vdchatbotapi-resources.grupoboticario.com.br/products/${code}.png`,
-                totalSales: currentSales
-              });
-            }
-          });
-        } else {
-          // Se não houver cache, faz a requisição à API
-          const response = await fetch(`https://api-final-s3hq.onrender.com/files/${store}`);
-          const data = await response.json();
-          const products = data.data?.products || [];
-
-          // Salva no cache
-          await setCachedProducts(store, data.data);
-
-          // Processa os produtos
-          products.forEach((product: any) => {
-            const code = product.code;
-            const currentSales = Number(product.sales?.currentCycleSales || 0);
-            
-            if (salesMap.has(code)) {
-              const existing = salesMap.get(code)!;
-              salesMap.set(code, {
-                ...existing,
-                totalSales: existing.totalSales + currentSales
-              });
-            } else {
-              salesMap.set(code, {
-                name: product.description || '',
-                image: `https://vdchatbotapi-resources.grupoboticario.com.br/products/${code}.png`,
-                totalSales: currentSales
-              });
-            }
-          });
-        }
-      }
-
-      // Converter para array e ordenar por vendas
-      const sortedProducts = Array.from(salesMap.entries())
-        .map(([code, data]) => ({
-          code,
-          ...data
-        }))
-        .sort((a, b) => b.totalSales - a.totalSales)
-        .slice(0, 10);
-
-      setTopSellingProducts(sortedProducts);
+      setTopSellingProducts(mappedProducts);
     } catch (error) {
       console.error('Erro ao carregar produtos mais vendidos:', error);
     } finally {
@@ -332,49 +220,11 @@ export default function HomeScreen() {
     }
   };
 
-  const getCachedRupture = async (): Promise<any | null> => {
-    try {
-      const cachedData = await AsyncStorage.getItem('rupture_data');
-      if (cachedData) {
-        const parsedData: CachedRuptureData = JSON.parse(cachedData);
-        
-        // Verifica se precisa atualizar o cache
-        if (!shouldUpdateCache(parsedData.timestamp)) {
-          return parsedData.data;
-        }
-      }
-      return null;
-    } catch (error) {
-      console.error('Erro ao ler cache de ruptura:', error);
-      return null;
-    }
-  };
-
-  const setCachedRupture = async (data: any): Promise<void> => {
-    try {
-      const cacheData: CachedRuptureData = {
-        data,
-        timestamp: Date.now()
-      };
-      await AsyncStorage.setItem('rupture_data', JSON.stringify(cacheData));
-    } catch (error) {
-      console.error('Erro ao salvar cache de ruptura:', error);
-    }
-  };
-
   const fetchRuptureData = async () => {
     try {
       setLoadingRupture(true);
       
-      // Tenta obter dados do cache primeiro
-      const cachedData = await getCachedRupture();
-      if (cachedData) {
-        setRuptureData(cachedData);
-        setLoadingRupture(false);
-        return;
-      }
-
-      const response = await fetch('https://backend-dashboards.prd.franqueado.grupoboticario.digital/disruption-by-period?years=2025&pillars=Todos&startCurrentCycle=202501&endCurrentCycle=202507&startPreviousCycle=202401&endPreviousCycle=202407&startCurrentDate=2024-12-26&endCurrentDate=2025-05-25&startPreviousDate=2023-12-26&endPreviousDate=2024-05-26&calendarType=cycle&previousPeriodCycleType=retail-year&previousPeriodCalendarType=retail-year&hour=00:00+-+23:00&separationType=businessDays', {
+      const response = await fetch('https://backend-dashboards.prd.franqueado.grupoboticario.digital/disruption-by-period?years=2025&pillars=Todos&startCurrentCycle=202501&endCurrentCycle=202517&startPreviousCycle=202401&endPreviousCycle=202407&startCurrentDate=2024-12-26&endCurrentDate=2025-05-25&startPreviousDate=2023-12-26&endPreviousDate=2024-05-26&calendarType=cycle&previousPeriodCycleType=retail-year&previousPeriodCalendarType=retail-year&hour=00:00+-+23:00&separationType=businessDays', {
         headers: {
           'accept': 'application/json, text/plain, */*',
           'accept-language': 'pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7',
@@ -391,10 +241,6 @@ export default function HomeScreen() {
         }
       });
       const data = await response.json();
-      
-      // Salva no cache
-      await setCachedRupture(data.data);
-      
       setRuptureData(data.data);
     } catch (error) {
       console.error('Erro ao buscar dados de ruptura:', error);
@@ -403,49 +249,11 @@ export default function HomeScreen() {
     }
   };
 
-  const getCachedCurrentCycle = async (): Promise<any | null> => {
-    try {
-      const cachedData = await AsyncStorage.getItem('rupture_current_cycle');
-      if (cachedData) {
-        const parsedData: CachedRuptureData = JSON.parse(cachedData);
-        
-        // Verifica se precisa atualizar o cache
-        if (!shouldUpdateCache(parsedData.timestamp)) {
-          return parsedData.data;
-        }
-      }
-      return null;
-    } catch (error) {
-      console.error('Erro ao ler cache do ciclo atual:', error);
-      return null;
-    }
-  };
-
-  const setCachedCurrentCycle = async (data: any): Promise<void> => {
-    try {
-      const cacheData: CachedRuptureData = {
-        data,
-        timestamp: Date.now()
-      };
-      await AsyncStorage.setItem('rupture_current_cycle', JSON.stringify(cacheData));
-    } catch (error) {
-      console.error('Erro ao salvar cache do ciclo atual:', error);
-    }
-  };
-
   const fetchCurrentCycleData = async () => {
     try {
       setLoadingCurrentCycle(true);
       
-      // Tenta obter dados do cache primeiro
-      const cachedData = await getCachedCurrentCycle();
-      if (cachedData) {
-        setCurrentCycleData(cachedData);
-        setLoadingCurrentCycle(false);
-        return;
-      }
-
-      const response = await fetch('https://backend-dashboards.prd.franqueado.grupoboticario.digital/disruption-by-period?years=2025&pillars=Todos&startCurrentCycle=202507&endCurrentCycle=202507&startPreviousCycle=202407&endPreviousCycle=202407&startCurrentDate=2025-05-12&endCurrentDate=2025-05-25&startPreviousDate=2024-05-13&endPreviousDate=2024-05-26&calendarType=cycle&previousPeriodCycleType=retail-year&previousPeriodCalendarType=retail-year&hour=00:00+-+23:00&separationType=businessDays', {
+      const response = await fetch('https://backend-dashboards.prd.franqueado.grupoboticario.digital/disruption-by-period?years=2025&pillars=Todos&startCurrentCycle=202508&endCurrentCycle=202508&startPreviousCycle=202407&endPreviousCycle=202407&startCurrentDate=2025-05-12&endCurrentDate=2025-05-25&startPreviousDate=2024-05-13&endPreviousDate=2024-05-26&calendarType=cycle&previousPeriodCycleType=retail-year&previousPeriodCalendarType=retail-year&hour=00:00+-+23:00&separationType=businessDays', {
         headers: {
           'accept': 'application/json, text/plain, */*',
           'accept-language': 'pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7',
@@ -462,10 +270,6 @@ export default function HomeScreen() {
         }
       });
       const data = await response.json();
-      
-      // Salva no cache
-      await setCachedCurrentCycle(data.data);
-      
       setCurrentCycleData(data.data);
     } catch (error) {
       console.error('Erro ao buscar dados do ciclo atual:', error);
@@ -481,15 +285,46 @@ export default function HomeScreen() {
     }
   }, [loadingToken, bearerToken]);
 
+  useEffect(() => {
+    const loadSelectedAvatar = async () => {
+      try {
+        const savedAvatar = await AsyncStorage.getItem('selectedAvatar');
+        if (savedAvatar) {
+          const avatarNumber = parseInt(savedAvatar) as AvatarKey;
+          if (avatarNumber >= 1 && avatarNumber <= 9) {
+            setSelectedAvatar(avatarNumber);
+          }
+        }
+      } catch (error) {
+        console.error('Erro ao carregar avatar:', error);
+      }
+    };
+
+    loadSelectedAvatar();
+  }, []);
+
+  const handleAvatarSelect = async (avatarNumber: AvatarKey) => {
+    try {
+      await AsyncStorage.setItem('selectedAvatar', avatarNumber.toString());
+      setSelectedAvatar(avatarNumber);
+      setShowAvatarModal(false);
+    } catch (error) {
+      console.error('Erro ao salvar avatar:', error);
+    }
+  };
+
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
       
       <View style={styles.header}>
         <View style={styles.headerLeft}>
-          <TouchableOpacity style={styles.avatarContainer}>
+          <TouchableOpacity 
+            style={styles.avatarContainer}
+            onPress={() => setShowAvatarModal(true)}
+          >
             <Image
-              source={require('@/assets/images/eu.png')}
+              source={selectedAvatar ? avatarImages[selectedAvatar] : defaultAvatar}
               style={styles.avatar}
             />
           </TouchableOpacity>
@@ -504,6 +339,51 @@ export default function HomeScreen() {
           </TouchableOpacity>
         </View>
       </View>
+
+      {/* Modal de Seleção de Avatar */}
+      <Modal
+        visible={showAvatarModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowAvatarModal(false)}
+      >
+        <Pressable 
+          style={styles.modalOverlay}
+          onPress={() => setShowAvatarModal(false)}
+        >
+          <View style={styles.avatarModalContent}>
+            <View style={styles.avatarModalHeader}>
+              <Text style={styles.avatarModalTitle}>Escolha seu Avatar</Text>
+              <TouchableOpacity 
+                onPress={() => setShowAvatarModal(false)}
+                style={styles.closeButton}
+              >
+                <Text style={styles.closeButtonText}>✕</Text>
+              </TouchableOpacity>
+            </View>
+            <FlatList
+              data={avatars}
+              numColumns={3}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  style={[
+                    styles.avatarOption,
+                    selectedAvatar === item && styles.selectedAvatar
+                  ]}
+                  onPress={() => handleAvatarSelect(item)}
+                >
+                  <Image
+                    source={avatarImages[item]}
+                    style={styles.avatarOptionImage}
+                  />
+                </TouchableOpacity>
+              )}
+              keyExtractor={(item) => item.toString()}
+              contentContainerStyle={styles.avatarGrid}
+            />
+          </View>
+        </Pressable>
+      </Modal>
 
       <ScrollView 
         style={styles.scrollView}
@@ -552,7 +432,7 @@ export default function HomeScreen() {
               <View style={styles.ruptureHeader}>
                 <Text style={styles.ruptureTitle}>% Ruptura Causa Franqueado (IAF)</Text>
                 <View style={[styles.rupturePeriod, { backgroundColor: Colors.neutral[100] }]}>
-                  <Text style={[styles.rupturePeriodText, { color: Colors.neutral[700] }]}>Ciclo 2025/07</Text>
+                  <Text style={[styles.rupturePeriodText, { color: Colors.neutral[700] }]}>Ciclo 2025/08</Text>
                 </View>
               </View>
               <View style={styles.ruptureValues}>
@@ -617,9 +497,10 @@ export default function HomeScreen() {
         <Animated.View entering={FadeInDown.duration(400).delay(300)}>
           <View style={styles.topSellingHeader}>
             <Text style={styles.sectionTitle}>Mais vendidos</Text>
-            <TouchableOpacity onPress={() => router.push('/(tabs)/inventory')}>
-              <Text style={styles.viewAllText}>Ver todos</Text>
-            </TouchableOpacity>
+            <View style={styles.slideButton}>
+              <Text style={styles.slideButtonText}>Deslize para ver mais</Text>
+              <ChevronRight size={16} color={Colors.neutral[500]} />
+            </View>
           </View>
           {loading ? (
             <View style={styles.loadingContainer}>
@@ -644,8 +525,12 @@ export default function HomeScreen() {
                     source={{ uri: product.image }} 
                     style={styles.topSellingImage}
                   />
+                  <Text style={styles.productCode}>{product.code}</Text>
                   <Text style={styles.topSellingName} numberOfLines={2}>
                     {product.name}
+                  </Text>
+                  <Text style={styles.totalSales}>
+                    Total de Vendas: {product.totalSales}
                   </Text>
                 </TouchableOpacity>
               ))}
@@ -812,10 +697,19 @@ const styles = StyleSheet.create({
     marginTop: 24,
     marginBottom: 16,
   },
-  viewAllText: {
+  slideButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    backgroundColor: Colors.neutral[100],
+    borderRadius: 16,
+  },
+  slideButtonText: {
     fontFamily: 'Inter-Medium',
-    fontSize: 14,
-    color: Colors.primary[500],
+    fontSize: 12,
+    color: Colors.neutral[500],
   },
   statsContainer: {
     backgroundColor: Colors.neutral[50],
@@ -848,11 +742,27 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     marginBottom: 8,
   },
+  productCode: {
+    fontFamily: 'Inter-SemiBold',
+    fontSize: 12,
+    color: Colors.neutral[600],
+    textAlign: 'center',
+    marginTop: 4,
+    marginBottom: 4,
+  },
   topSellingName: {
     fontFamily: 'Inter-Medium',
-    fontSize: 14,
+    fontSize: 12,
     color: Colors.neutral[900],
     marginTop: 8,
+    textAlign: 'center',
+  },
+  totalSales: {
+    fontFamily: 'Inter-SemiBold',
+    fontSize: 12,
+    color: Colors.primary[500],
+    marginTop: 4,
+    textAlign: 'center',
   },
   communicationsList: {
     gap: 12,
@@ -941,5 +851,61 @@ const styles = StyleSheet.create({
   highlightedText: {
     color: Colors.neutral[900],
     fontFamily: 'Inter-SemiBold',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  avatarModalContent: {
+    backgroundColor: Colors.white,
+    borderRadius: 16,
+    width: '90%',
+    maxWidth: 400,
+    padding: 20,
+  },
+  avatarModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  avatarModalTitle: {
+    fontFamily: 'Inter-SemiBold',
+    fontSize: 20,
+    color: Colors.neutral[900],
+  },
+  closeButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: Colors.neutral[100],
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  closeButtonText: {
+    fontSize: 16,
+    color: Colors.neutral[700],
+  },
+  avatarGrid: {
+    padding: 10,
+  },
+  avatarOption: {
+    width: 80,
+    height: 80,
+    margin: 10,
+    borderRadius: 40,
+    overflow: 'hidden',
+    borderWidth: 2,
+    borderColor: Colors.neutral[200],
+  },
+  selectedAvatar: {
+    borderColor: Colors.primary[500],
+    borderWidth: 3,
+  },
+  avatarOptionImage: {
+    width: '100%',
+    height: '100%',
   },
 });
