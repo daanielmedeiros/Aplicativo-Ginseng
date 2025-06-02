@@ -18,7 +18,6 @@ import Animated, { FadeInRight } from 'react-native-reanimated';
 import Colors from '@/constants/Colors';
 import { CommonStyles } from '@/constants/Styles';
 import { InventoryItem } from '@/components/InventoryItem';
-import { mockInventoryData } from '@/data/mockData';
 
 const categories = [
   { id: 'all', name: 'Todos' },
