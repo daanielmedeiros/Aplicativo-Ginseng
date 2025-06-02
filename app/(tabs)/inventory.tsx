@@ -78,6 +78,18 @@ interface Store {
   displayName: string;
 }
 
+interface PDVResponse {
+  pdvs: number[];
+  total: number;
+}
+
+interface InventoryResponse {
+  data: InventoryItemType[];
+  total: number;
+  pagina_atual: number;
+  total_paginas: number;
+}
+
 const categoryMapping: { [key: string]: string } = {
   "10040": "CUIDADOS COM A PELE",
   "10090": "HOME CARE",
@@ -196,12 +208,31 @@ export default function InventoryScreen() {
   const loadInventoryData = async (pdvCode: string) => {
     try {
       setLoading(true);
-      const response = await fetch(`http://187.72.204.233:4000/draft/${pdvCode}`);
-      const responseData = await response.json();
+      let allProducts: InventoryItemType[] = [];
+      let currentPage = 1;
+      let totalPages = 1;
+
+      // Primeira requisição para obter o total de páginas
+      const initialResponse = await fetch(`http://187.72.204.233:4000/tabela/draft/${pdvCode}?page=1`);
+      const initialData: InventoryResponse = await initialResponse.json();
+      totalPages = initialData.total_paginas;
+
+      // Adiciona os produtos da primeira página
+      allProducts = [...initialData.data];
+
+      // Carrega as páginas restantes
+      for (let page = 2; page <= totalPages; page++) {
+        const response = await fetch(`http://187.72.204.233:4000/tabela/draft/${pdvCode}?page=${page}`);
+        const data: InventoryResponse = await response.json();
+        allProducts = [...allProducts, ...data.data];
+      }
       
-      const mappedData = responseData.map((item: any) => {
+      // Remove duplicatas baseado no código do produto
+      const uniqueProducts = Array.from(new Map(allProducts.map(item => [item.code, item])).values());
+      
+      const mappedData = uniqueProducts.map((item: any) => {
         return {
-          id: item.code || '',
+          id: `${item.code}_${item.loja_id}`, // Garante ID único combinando código e loja
           name: item.description || '',
           image: `https://sgi.e-boticario.com.br/Paginas/Imagens/Produtos/${item.code}g.jpg`,
           category: categoryMapping[item.codcategory] || 'OUTROS',
@@ -245,11 +276,11 @@ export default function InventoryScreen() {
   useEffect(() => {
     const fetchStores = async () => {
       try {
-        const response = await fetch('http://187.72.204.233:4000/draft/');
-        const data = await response.json();
+        const response = await fetch('http://187.72.204.233:4000/pdvs');
+        const data: PDVResponse = await response.json();
         
-        const storeList = data.map((item: { loja_id: string }) => {
-          const code = item.loja_id;
+        const storeList = data.pdvs.map((pdvCode) => {
+          const code = pdvCode.toString();
           const storeName = lojasMap[code];
           return {
             name: `${code}.json`,

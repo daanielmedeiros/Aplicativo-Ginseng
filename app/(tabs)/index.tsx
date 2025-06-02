@@ -57,6 +57,19 @@ interface BulletinResponse {
   items: BulletinItem[];
 }
 
+interface TokenResponse {
+  data: {
+    TRIAL312: null;
+    created_at: string;
+    id: number;
+    token: string;
+    updated_at: string;
+  }[];
+  total: number;
+  pagina_atual: number;
+  total_paginas: number;
+}
+
 type AvatarKey = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9;
 
 const avatarImages: Record<AvatarKey, any> = {
@@ -95,6 +108,10 @@ export default function HomeScreen() {
   const [loadingCurrentCycle, setLoadingCurrentCycle] = useState(true);
   const [showAvatarModal, setShowAvatarModal] = useState(false);
   const [selectedAvatar, setSelectedAvatar] = useState<AvatarKey | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [pdvCode, setPdvCode] = useState<string | null>(null);
+  const [pdvName, setPdvName] = useState<string | null>(null);
+  const [token, setToken] = useState<string | null>(null);
 
   const avatars: AvatarKey[] = [1, 2, 3, 4, 5, 6, 7, 8, 9];
 
@@ -119,13 +136,16 @@ export default function HomeScreen() {
     try {
       setLoadingToken(true);
       const response = await fetch('http://187.72.204.233:4000/tokens');
-      const data = await response.json();
-      if (data && data.length > 0) {
-        const token = data[0].token;
-        setBearerToken(token);
+      const data: TokenResponse = await response.json();
+      
+      if (data.data && data.data.length > 0) {
+        setToken(data.data[0].token);
+      } else {
+        setError('Nenhum token encontrado');
       }
     } catch (error) {
-      console.error('Erro ao buscar token:', error);
+      setError('Erro ao carregar token');
+      console.error('Erro ao carregar token:', error);
     } finally {
       setLoadingToken(false);
     }
