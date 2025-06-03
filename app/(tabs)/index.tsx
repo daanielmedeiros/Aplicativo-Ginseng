@@ -26,9 +26,10 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 interface TopSellingProduct {
   code: string;
-  name: string;
+  description: string;
   image: string;
   totalSales: number;
+  position: number;
 }
 
 interface StorePerformance {
@@ -86,6 +87,14 @@ const avatarImages: Record<AvatarKey, any> = {
 
 const defaultAvatar = require('@/assets/images/avatar/padrao.png');
 
+interface BestSellerResponse {
+  bestsellers: {
+    code: string;
+    descricao: string;
+    vendas: number;
+  }[];
+}
+
 export default function HomeScreen() {
   const colorScheme = useColorScheme();
   const [loading, setLoading] = useState(true);
@@ -135,11 +144,13 @@ export default function HomeScreen() {
   const fetchBearerToken = async () => {
     try {
       setLoadingToken(true);
-      const response = await fetch('http://187.72.204.233:4000/tokens');
+      const response = await fetch('https://api.grupoginseng.com.br/tokens');
       const data: TokenResponse = await response.json();
       
       if (data.data && data.data.length > 0) {
-        setToken(data.data[0].token);
+        const token = data.data[0].token;
+        setToken(token);
+        setBearerToken(token);
       } else {
         setError('Nenhum token encontrado');
       }
@@ -156,10 +167,12 @@ export default function HomeScreen() {
   }, []);
 
   useEffect(() => {
-    if (!loadingToken && bearerToken) {
+    if (!loadingToken && token) {
       loadStorePerformance();
+      fetchRuptureData();
+      fetchCurrentCycleData();
     }
-  }, [loadingToken, bearerToken]);
+  }, [loadingToken, token]);
 
   const loadStorePerformance = async () => {
     if (!bearerToken) return;
@@ -222,14 +235,15 @@ export default function HomeScreen() {
   const loadTopSellingProducts = async () => {
     try {
       setLoading(true);
-      const response = await fetch('http://187.72.204.233:4000/bestsellers');
-      const data = await response.json();
+      const response = await fetch('https://api.grupoginseng.com.br/bestsellers');
+      const data: BestSellerResponse = await response.json();
       
-      const mappedProducts = data.map((product: any) => ({
+      const mappedProducts = data.bestsellers.map((product, index) => ({
         code: product.code,
-        name: product.description,
+        description: product.descricao,
         image: `https://sgi.e-boticario.com.br/Paginas/Imagens/Produtos/${product.code}g.jpg`,
-        totalSales: product.total_vendas
+        totalSales: product.vendas,
+        position: index + 1 // Posição baseada no índice da array (1° mais vendido, 2° mais vendido, etc.)
       }));
 
       setTopSellingProducts(mappedProducts);
@@ -273,7 +287,7 @@ export default function HomeScreen() {
     try {
       setLoadingCurrentCycle(true);
       
-      const response = await fetch('https://backend-dashboards.prd.franqueado.grupoboticario.digital/disruption-by-period?years=2025&pillars=Todos&startCurrentCycle=202508&endCurrentCycle=202508&startPreviousCycle=202407&endPreviousCycle=202407&startCurrentDate=2025-05-12&endCurrentDate=2025-05-25&startPreviousDate=2024-05-13&endPreviousDate=2024-05-26&calendarType=cycle&previousPeriodCycleType=retail-year&previousPeriodCalendarType=retail-year&hour=00:00+-+23:00&separationType=businessDays', {
+      const response = await fetch('https://backend-dashboards.prd.franqueado.grupoboticario.digital/disruption-by-period?years=2025&pillars=Todos&startCurrentCycle=202507&endCurrentCycle=202507&startPreviousCycle=202407&endPreviousCycle=202407&startCurrentDate=2025-05-12&endCurrentDate=2025-05-25&startPreviousDate=2024-05-13&endPreviousDate=2024-05-26&calendarType=cycle&previousPeriodCycleType=retail-year&previousPeriodCalendarType=retail-year&hour=00:00+-+23:00&separationType=businessDays', {
         headers: {
           'accept': 'application/json, text/plain, */*',
           'accept-language': 'pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7',
@@ -297,13 +311,6 @@ export default function HomeScreen() {
       setLoadingCurrentCycle(false);
     }
   };
-
-  useEffect(() => {
-    if (!loadingToken && bearerToken) {
-      fetchRuptureData();
-      fetchCurrentCycleData();
-    }
-  }, [loadingToken, bearerToken]);
 
   useEffect(() => {
     const loadSelectedAvatar = async () => {
@@ -452,7 +459,7 @@ export default function HomeScreen() {
               <View style={styles.ruptureHeader}>
                 <Text style={styles.ruptureTitle}>% Ruptura Causa Franqueado (IAF)</Text>
                 <View style={[styles.rupturePeriod, { backgroundColor: Colors.neutral[100] }]}>
-                  <Text style={[styles.rupturePeriodText, { color: Colors.neutral[700] }]}>Ciclo 2025/08</Text>
+                  <Text style={[styles.rupturePeriodText, { color: Colors.neutral[700] }]}>Ciclo 2025/07</Text>
                 </View>
               </View>
               <View style={styles.ruptureValues}>
@@ -545,13 +552,15 @@ export default function HomeScreen() {
                     source={{ uri: product.image }} 
                     style={styles.topSellingImage}
                   />
-                  <Text style={styles.productCode}>{product.code}</Text>
-                  <Text style={styles.topSellingName} numberOfLines={2}>
-                    {product.name}
-                  </Text>
-                  <Text style={styles.totalSales}>
-                    Total de Vendas: {product.totalSales}
-                  </Text>
+                  <View style={styles.productInfo}>
+                    <Text style={styles.productCode}>{product.code}</Text>
+                    <Text style={styles.productDescription} numberOfLines={2}>
+                      {product.description}
+                    </Text>
+                    <Text style={styles.totalSales}>
+                      {product.totalSales} vendas
+                    </Text>
+                  </View>
                 </TouchableOpacity>
               ))}
             </ScrollView>
@@ -755,12 +764,23 @@ const styles = StyleSheet.create({
   topSellingItem: {
     width: 160,
     marginRight: 16,
+    backgroundColor: Colors.white,
+    borderRadius: 12,
+    padding: 12,
+    shadowColor: Colors.black,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
   },
   topSellingImage: {
-    width: 160,
-    height: 160,
+    width: '100%',
+    height: 120,
     borderRadius: 8,
     marginBottom: 8,
+  },
+  productInfo: {
+    flex: 1,
   },
   productCode: {
     fontFamily: 'Inter-SemiBold',
@@ -770,12 +790,13 @@ const styles = StyleSheet.create({
     marginTop: 4,
     marginBottom: 4,
   },
-  topSellingName: {
-    fontFamily: 'Inter-Medium',
-    fontSize: 12,
-    color: Colors.neutral[900],
-    marginTop: 8,
-    textAlign: 'center',
+  productDescription: {
+    fontFamily: 'Inter-Regular',
+    fontSize: 11,
+    color: Colors.neutral[500],
+    marginTop: 2,
+    marginBottom: 6,
+    lineHeight: 14,
   },
   totalSales: {
     fontFamily: 'Inter-SemiBold',

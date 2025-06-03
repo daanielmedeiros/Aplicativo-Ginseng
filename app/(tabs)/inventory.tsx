@@ -213,7 +213,7 @@ export default function InventoryScreen() {
       let totalPages = 1;
 
       // Primeira requisição para obter o total de páginas
-      const initialResponse = await fetch(`http://187.72.204.233:4000/tabela/draft/${pdvCode}?page=1`);
+      const initialResponse = await fetch(`https://api.grupoginseng.com.br/tabela/draft/${pdvCode}?page=1`);
       const initialData: InventoryResponse = await initialResponse.json();
       totalPages = initialData.total_paginas;
 
@@ -222,7 +222,7 @@ export default function InventoryScreen() {
 
       // Carrega as páginas restantes
       for (let page = 2; page <= totalPages; page++) {
-        const response = await fetch(`http://187.72.204.233:4000/tabela/draft/${pdvCode}?page=${page}`);
+        const response = await fetch(`https://api.grupoginseng.com.br/tabela/draft/${pdvCode}?page=${page}`);
         const data: InventoryResponse = await response.json();
         allProducts = [...allProducts, ...data.data];
       }
@@ -276,7 +276,7 @@ export default function InventoryScreen() {
   useEffect(() => {
     const fetchStores = async () => {
       try {
-        const response = await fetch('http://187.72.204.233:4000/pdvs');
+        const response = await fetch('https://api.grupoginseng.com.br/pdvs');
         const data: PDVResponse = await response.json();
         
         const storeList = data.pdvs.map((pdvCode) => {

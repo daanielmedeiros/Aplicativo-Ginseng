@@ -1,7 +1,7 @@
 import React from 'react';
 import { Tabs } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ChartBar as BarChart2, Chrome as Home, Package, Plus, Settings, Store } from 'lucide-react-native';
+import { DoorOpen, Chrome as Home, Package, Plus, Settings, Store } from 'lucide-react-native';
 import Colors from '@/constants/Colors';
 import { View } from 'react-native';
 
@@ -112,7 +112,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="analytics"
         options={{
-          title: 'Analytics',
+          title: 'Salas',
           tabBarIcon: ({ focused, color, size }) => (
             <View style={{ alignItems: 'center', justifyContent: 'center' }}>
               {focused && (
@@ -139,10 +139,10 @@ export default function TabLayout() {
                     borderWidth: 2,
                     borderColor: '#04506B'
                   }}>
-                    <BarChart2 size={size - 4} color={color} />
+                    <DoorOpen size={size - 4} color={color} />
                   </View>
                 ) : (
-                  <BarChart2 size={size} color={color} />
+                  <DoorOpen size={size} color={color} />
                 )}
               </View>
             </View>
