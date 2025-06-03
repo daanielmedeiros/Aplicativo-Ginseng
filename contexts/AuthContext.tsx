@@ -28,7 +28,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 const getRedirectUri = () => {
   if (Platform.OS === 'web') {
     // Para web, usar localhost
-    return 'http://localhost:8081';
+    return 'https://app.danielmedeiros.fun/';
   } else {
     // Para mobile, usar um scheme customizado específico
     return 'com.grupoginseng.app://auth';
