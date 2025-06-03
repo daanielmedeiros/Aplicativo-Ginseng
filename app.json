@@ -5,7 +5,7 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon-logo.png",
-    "scheme": "myapp",
+    "scheme": "com.grupoginseng.app",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "splash": {

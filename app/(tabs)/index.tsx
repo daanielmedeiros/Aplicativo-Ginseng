@@ -23,6 +23,7 @@ import { DashboardCard } from '@/components/DashboardCard';
 import { TopSellingProducts } from '@/components/TopSellingProducts';
 import { router } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface TopSellingProduct {
   code: string;
@@ -97,6 +98,7 @@ interface BestSellerResponse {
 
 export default function HomeScreen() {
   const colorScheme = useColorScheme();
+  const { user, signOut } = useAuth();
   const [loading, setLoading] = useState(true);
   const [loadingCommunications, setLoadingCommunications] = useState(true);
   const [topSellingProducts, setTopSellingProducts] = useState<TopSellingProduct[]>([]);
@@ -136,9 +138,13 @@ export default function HomeScreen() {
     return `${diaSemana}, ${dia} de ${mes}`;
   };
 
-  const handleLogout = () => {
-    // Aqui você pode adicionar lógica adicional de logout se necessário
-    router.replace('/(auth)/login');
+  const handleLogout = async () => {
+    try {
+      await signOut();
+      // A navegação será feita automaticamente pelo contexto
+    } catch (error) {
+      console.error('Erro ao fazer logout:', error);
+    }
   };
 
   const fetchBearerToken = async () => {
@@ -356,7 +362,7 @@ export default function HomeScreen() {
             />
           </TouchableOpacity>
           <View>
-            <Text style={styles.greeting}>Olá, Usuário</Text>
+            <Text style={styles.greeting}>Olá, {user?.name || 'Usuário'}</Text>
             <Text style={styles.date}>{getFormattedDate()}</Text>
           </View>
         </View>

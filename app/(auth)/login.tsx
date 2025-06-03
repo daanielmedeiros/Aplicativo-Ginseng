@@ -9,46 +9,30 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  ActivityIndicator,
 } from 'react-native';
 import { router } from 'expo-router';
 import { Lock, Mail } from 'lucide-react-native';
 import Animated, { FadeIn } from 'react-native-reanimated';
 import Colors from '@/constants/Colors';
 import { CommonStyles } from '@/constants/Styles';
+import { useAuth } from '@/contexts/AuthContext';
+import ConstellationBackground from '@/components/ConstellationBackground';
 
 export default function LoginScreen() {
-  const [email, setEmail] = useState('usuario@grupoginseng.com.br');
-  const [password, setPassword] = useState('123456');
-  const [emailFocused, setEmailFocused] = useState(false);
-  const [passwordFocused, setPasswordFocused] = useState(false);
-  const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const handleLogin = async () => {
-    if (!email || !password) {
-      setError('Por favor, preencha todos os campos');
-      return;
-    }
-    
-    setLoading(true);
-    setError('');
-    
+  const { signIn, isLoading: authLoading } = useAuth();
+
+  const handleMicrosoftLogin = async () => {
     try {
-      // Simulate login process
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
-      // Navegação com tratamento de erro
-      try {
-        await router.replace('/(tabs)');
-      } catch (navigationError) {
-        console.error('Erro na navegação:', navigationError);
-        setError('Erro ao navegar para a tela inicial. Tente novamente.');
-      }
+      setError('');
+      await signIn();
+      // Se o login for bem-sucedido, o contexto irá atualizar o estado
+      // e o app redirecionará automaticamente
     } catch (error) {
-      console.error('Erro no login:', error);
-      setError('Erro ao fazer login. Tente novamente.');
-    } finally {
-      setLoading(false);
+      console.error('Erro no login Microsoft:', error);
+      setError('Erro ao fazer login com Microsoft. Tente novamente.');
     }
   };
 
@@ -58,81 +42,44 @@ export default function LoginScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       keyboardVerticalOffset={Platform.OS === 'ios' ? 64 : 0}
     >
+      <ConstellationBackground />
+      
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <Animated.View entering={FadeIn.duration(600)} style={styles.logoContainer}>
           <Image
             source={require('@/assets/images/icon.png')}
             style={styles.logo}
           />
+
         </Animated.View>
 
         <Animated.View entering={FadeIn.duration(600).delay(300)} style={styles.formContainer}>
-          <View style={styles.inputWrapper}>
-            <Mail 
-              size={20} 
-              color={emailFocused ? Colors.primary[500] : Colors.neutral[500]} 
-              style={styles.inputIcon} 
-            />
-            <TextInput
-              style={[
-                CommonStyles.input, 
-                styles.input,
-                emailFocused && CommonStyles.inputFocused
-              ]}
-              placeholder="Email"
-              placeholderTextColor={Colors.neutral[500]}
-              value={email}
-              onChangeText={setEmail}
-              autoCapitalize="none"
-              keyboardType="email-address"
-              onFocus={() => setEmailFocused(true)}
-              onBlur={() => setEmailFocused(false)}
-            />
-          </View>
-
-          <View style={styles.inputWrapper}>
-            <Lock 
-              size={20} 
-              color={passwordFocused ? Colors.primary[500] : Colors.neutral[500]} 
-              style={styles.inputIcon} 
-            />
-            <TextInput
-              style={[
-                CommonStyles.input, 
-                styles.input,
-                passwordFocused && CommonStyles.inputFocused
-              ]}
-              placeholder="Senha"
-              placeholderTextColor={Colors.neutral[500]}
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry
-              onFocus={() => setPasswordFocused(true)}
-              onBlur={() => setPasswordFocused(false)}
-            />
-          </View>
+          {/* Login com Microsoft - Botão principal */}
+          <TouchableOpacity 
+            style={[styles.microsoftButton, authLoading && styles.buttonLoading]} 
+            onPress={handleMicrosoftLogin}
+            disabled={authLoading}
+          >
+            <View style={styles.microsoftButtonContent}>
+              <Image
+                source={{ uri: 'https://docs.microsoft.com/en-us/azure/active-directory/develop/media/howto-add-branding-in-azure-ad-apps/ms-symbollockup_mssymbol_19.png' }}
+                style={styles.microsoftIcon}
+              />
+              {authLoading ? (
+                <ActivityIndicator size="small" color={Colors.white} style={{ marginLeft: 12 }} />
+              ) : (
+                <Text style={styles.microsoftButtonText}>Entrar com Microsoft</Text>
+              )}
+            </View>
+          </TouchableOpacity>
 
           {error ? (
             <Text style={styles.errorText}>{error}</Text>
           ) : null}
 
-          <TouchableOpacity style={styles.forgotPassword}>
-            <Text style={styles.forgotPasswordText}>Esqueceu a senha?</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity 
-            style={[
-              CommonStyles.buttonPrimary, 
-              styles.loginButton,
-              loading && styles.buttonLoading
-            ]} 
-            onPress={handleLogin}
-            disabled={loading}
-          >
-            <Text style={CommonStyles.buttonText}>
-              {loading ? 'Entrando...' : 'Entrar'}
-            </Text>
-          </TouchableOpacity>
+          <Text style={styles.helpText}>
+            Use suas credenciais corporativas para acessar o sistema.
+          </Text>
 
           <Text style={styles.versionText}>Versão 1.0.0</Text>
         </Animated.View>
@@ -166,7 +113,9 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter-SemiBold',
     fontSize: 28,
     color: Colors.white,
+    marginTop: 16,
     marginBottom: 8,
+    textAlign: 'center',
   },
   tagline: {
     fontFamily: 'Inter-Regular',
@@ -176,33 +125,37 @@ const styles = StyleSheet.create({
   },
   formContainer: {
     width: '100%',
+    alignItems: 'center',
   },
-  inputWrapper: {
-    position: 'relative',
-    marginBottom: 16,
-  },
-  input: {
-    paddingLeft: 48,
-    marginBottom: 0,
-    backgroundColor: Colors.white,
-  },
-  inputIcon: {
-    position: 'absolute',
-    left: 16,
-    top: 14,
-    zIndex: 1,
-  },
-  forgotPassword: {
-    alignSelf: 'flex-end',
+  microsoftButton: {
+    backgroundColor: Colors.primary[500],
+    borderRadius: 12,
+    padding: 16,
     marginBottom: 24,
+    width: '100%',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 4,
   },
-  forgotPasswordText: {
+  microsoftButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  microsoftIcon: {
+    width: 20,
+    height: 20,
+    marginRight: 12,
+  },
+  microsoftButtonText: {
     fontFamily: 'Inter-Medium',
-    fontSize: 14,
+    fontSize: 16,
     color: Colors.white,
-  },
-  loginButton: {
-    marginBottom: 16,
   },
   buttonLoading: {
     opacity: 0.7,
@@ -212,6 +165,14 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: Colors.error[500],
     marginBottom: 16,
+    textAlign: 'center',
+  },
+  helpText: {
+    fontFamily: 'Inter-Regular',
+    fontSize: 14,
+    color: Colors.neutral[200],
+    textAlign: 'center',
+    marginBottom: 24,
   },
   versionText: {
     fontFamily: 'Inter-Regular',
