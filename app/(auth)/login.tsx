@@ -10,14 +10,16 @@ import {
   Platform,
   ScrollView,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { router } from 'expo-router';
-import { Lock, Mail } from 'lucide-react-native';
+import { Lock, Mail, Settings } from 'lucide-react-native';
 import Animated, { FadeIn } from 'react-native-reanimated';
 import Colors from '@/constants/Colors';
 import { CommonStyles } from '@/constants/Styles';
 import { useAuth } from '@/contexts/AuthContext';
 import ConstellationBackground from '@/components/ConstellationBackground';
+import { logAuthConfig } from '@/utils/AuthDebug';
 
 export default function LoginScreen() {
   const [error, setError] = useState('');
@@ -27,13 +29,56 @@ export default function LoginScreen() {
   const handleMicrosoftLogin = async () => {
     try {
       setError('');
+      
+      // Para Android, mostrar dica específica
+      if (Platform.OS === 'android') {
+        console.log('🤖 Iniciando login no Android...');
+        console.log('💡 Se der erro "sorry about that", siga estas instruções:');
+        console.log('1. Pressione "Voltar" ou "Recarregar"');
+        console.log('2. Verifique se o URI está correto no Azure AD');
+        console.log('3. Tente usar Expo Go ao invés de desenvolvimento');
+      }
+      
       await signIn();
       // Se o login for bem-sucedido, o contexto irá atualizar o estado
       // e o app redirecionará automaticamente
     } catch (error) {
       console.error('Erro no login Microsoft:', error);
-      setError('Erro ao fazer login com Microsoft. Tente novamente.');
+      
+      // Mensagem específica para Android
+      if (Platform.OS === 'android') {
+        setError('Erro no login Android. Tente usar o Expo Go ou verifique a configuração do Azure AD.');
+      } else {
+        setError('Erro ao fazer login com Microsoft. Tente novamente.');
+      }
     }
+  };
+
+  const showDebugInfo = () => {
+    const config = logAuthConfig();
+    Alert.alert(
+      '🚨 Erro Azure AD - SOLUÇÃO',
+      `URI que está faltando no Azure:\n\n` +
+      `${config.current}\n\n` +
+      `PASSOS PARA RESOLVER:\n` +
+      `1. Vá para portal.azure.com\n` +
+      `2. Azure AD > Registros de aplicativo\n` +
+      `3. App ID: ${config.appId.substring(0, 8)}...\n` +
+      `4. Autenticação > Adicionar URI\n` +
+      `5. Tipo: Cliente público/nativo\n` +
+      `6. Cole o URI acima\n` +
+      `7. Salve e teste novamente`,
+      [
+        {
+          text: 'Copiar URI',
+          onPress: () => {
+            // Em um app real, usaria Clipboard.setString
+            console.log('URI para copiar:', config.current);
+          }
+        },
+        { text: 'OK' }
+      ]
+    );
   };
 
   return (
@@ -50,7 +95,15 @@ export default function LoginScreen() {
             source={require('@/assets/images/icon.png')}
             style={styles.logo}
           />
-
+          
+          {/* Botão de Debug - Remover em produção */}
+          <TouchableOpacity
+            style={styles.debugButton}
+            onPress={showDebugInfo}
+          >
+            <Settings size={16} color={Colors.neutral[400]} />
+            <Text style={styles.debugButtonText}>Debug Azure</Text>
+          </TouchableOpacity>
         </Animated.View>
 
         <Animated.View entering={FadeIn.duration(600).delay(300)} style={styles.formContainer}>
@@ -180,5 +233,22 @@ const styles = StyleSheet.create({
     color: Colors.neutral[200],
     textAlign: 'center',
     marginTop: 32,
+  },
+  debugButton: {
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: 8,
+    padding: 8,
+    marginTop: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  debugButtonText: {
+    fontFamily: 'Inter-Medium',
+    fontSize: 12,
+    color: Colors.neutral[300],
+    marginLeft: 8,
   },
 });

@@ -29,9 +29,18 @@ const getRedirectUri = () => {
   if (Platform.OS === 'web') {
     // Para web, usar localhost
     return 'https://app.danielmedeiros.fun/';
+  } else if (Platform.OS === 'android') {
+    // Para Android, usar um URI que funcione melhor com deep linking
+    return AuthSession.makeRedirectUri({
+      preferLocalhost: false,
+      isTripleSlashed: true,
+    });
   } else {
-    // Para mobile, usar um scheme customizado específico
-    return 'com.grupoginseng.app://auth';
+    // Para iOS (que já está funcionando)
+    return AuthSession.makeRedirectUri({
+      preferLocalhost: true,
+      isTripleSlashed: true,
+    });
   }
 };
 
@@ -40,6 +49,8 @@ const REDIRECT_URI = getRedirectUri();
 console.log('=== CONFIG DEBUG ===');
 console.log('Platform:', Platform.OS);
 console.log('REDIRECT_URI configurado:', REDIRECT_URI);
+console.log('=== ADICIONAR NO AZURE ===');
+console.log('URI EXATO para Azure:', REDIRECT_URI);
 console.log('==================');
 
 const discovery = {
@@ -65,6 +76,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
       extraParams: {
         prompt: 'select_account',
       },
+      // Configuração específica para Android
+      ...(Platform.OS === 'android' && {
+        additionalParameters: {
+          response_mode: 'query'
+        }
+      })
     },
     discovery
   );
@@ -78,6 +95,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
   useEffect(() => {
     if (response?.type === 'success') {
       handleAuthResponse(response);
+    } else if (response?.type === 'error') {
+      console.error('Erro na autenticação:', response.error);
+      setIsLoading(false);
+    } else if (response?.type === 'cancel') {
+      console.log('Autenticação cancelada pelo usuário');
+      setIsLoading(false);
     }
   }, [response]);
 

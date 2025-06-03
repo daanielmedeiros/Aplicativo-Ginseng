@@ -27,7 +27,23 @@
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/icon-logo.png",
         "backgroundColor": "#04506B"
-      }
+      },
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            {
+              "scheme": "com.grupoginseng.app"
+            },
+            {
+              "scheme": "exp",
+              "host": "*"
+            }
+          ],
+          "category": ["BROWSABLE", "DEFAULT"]
+        }
+      ]
     },
     "web": {
       "bundler": "metro",
