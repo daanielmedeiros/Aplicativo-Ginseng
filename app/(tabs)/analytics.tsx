@@ -67,7 +67,7 @@ interface BookingInfo {
   description: string;
 }
 
-const API_BASE_URL = 'http://api.grupoginseng.com.br/';
+const API_BASE_URL = 'https://api.grupoginseng.com.br/';
 
 export default function AnalyticsScreen() {
   const colorScheme = useColorScheme();
