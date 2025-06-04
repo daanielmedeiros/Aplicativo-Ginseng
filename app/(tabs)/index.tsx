@@ -10,17 +10,21 @@ import {
   Linking,
   Modal,
   Pressable,
-  FlatList
+  FlatList,
+  Dimensions
 } from 'react-native';
 import { useColorScheme } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ChartBar as BarChart2, LogOut, Search, TrendingUp, TrendingDown, Package, Archive, Truck, ChevronRight, Store } from 'lucide-react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
+import { LineChart } from 'react-native-chart-kit';
 import Colors from '@/constants/Colors';
 import { CommonStyles } from '@/constants/Styles';
 import { DashboardCard } from '@/components/DashboardCard';
 import { TopSellingProducts } from '@/components/TopSellingProducts';
+import { CachedImage } from '@/components/CachedImage';
+import { useCountAnimation } from '@/hooks/useCountAnimation';
 import { router } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from '@/contexts/AuthContext';
@@ -123,6 +127,10 @@ export default function HomeScreen() {
   const [pdvCode, setPdvCode] = useState<string | null>(null);
   const [pdvName, setPdvName] = useState<string | null>(null);
   const [token, setToken] = useState<string | null>(null);
+  const [selectedCycle, setSelectedCycle] = useState('07');
+  const [showCycleSelector, setShowCycleSelector] = useState(false);
+  const [historicalData, setHistoricalData] = useState<number[]>([]);
+  const [loadingHistorical, setLoadingHistorical] = useState(true);
 
   const avatars: AvatarKey[] = [1, 2, 3, 4, 5, 6, 7, 8, 9];
 
@@ -177,8 +185,50 @@ export default function HomeScreen() {
       loadStorePerformance();
       fetchRuptureData();
       fetchCurrentCycleData();
+      fetchHistoricalData();
     }
   }, [loadingToken, token]);
+
+  // UseEffect separado para atualizar apenas os dados do ciclo específico
+  useEffect(() => {
+    if (!loadingToken && token) {
+      fetchCurrentCycleData();
+    }
+  }, [selectedCycle]);
+
+  // Verificar se o ciclo selecionado está válido após carregar dados históricos
+  useEffect(() => {
+    if (historicalData.length > 0) {
+      // Encontrar o maior ciclo com dados válidos (> 0.1%)
+      let highestValidCycle = -1;
+      
+      for (let i = historicalData.length - 1; i >= 0; i--) {
+        if (historicalData[i] > 0.1) {
+          highestValidCycle = i;
+          break;
+        }
+      }
+      
+      if (highestValidCycle !== -1) {
+        const validCycle = String(highestValidCycle + 1).padStart(2, '0');
+        
+        // Apenas atualiza se o ciclo atual está inválido ou se é o carregamento inicial
+        const currentCycleIndex = parseInt(selectedCycle) - 1;
+        const currentCycleData = historicalData[currentCycleIndex] || 0;
+        
+        if (currentCycleData <= 0.1 || selectedCycle === '07') {
+          setSelectedCycle(validCycle);
+        }
+      } else {
+        // Se nenhum ciclo tem dados válidos, manter o padrão ou primeiro disponível
+        const firstValidIndex = historicalData.findIndex(data => data > 0.1);
+        if (firstValidIndex !== -1) {
+          const validCycle = String(firstValidIndex + 1).padStart(2, '0');
+          setSelectedCycle(validCycle);
+        }
+      }
+    }
+  }, [historicalData]);
 
   const loadStorePerformance = async () => {
     if (!bearerToken) return;
@@ -293,7 +343,7 @@ export default function HomeScreen() {
     try {
       setLoadingCurrentCycle(true);
       
-      const response = await fetch('https://backend-dashboards.prd.franqueado.grupoboticario.digital/disruption-by-period?years=2025&pillars=Todos&startCurrentCycle=202507&endCurrentCycle=202507&startPreviousCycle=202407&endPreviousCycle=202407&startCurrentDate=2025-05-12&endCurrentDate=2025-05-25&startPreviousDate=2024-05-13&endPreviousDate=2024-05-26&calendarType=cycle&previousPeriodCycleType=retail-year&previousPeriodCalendarType=retail-year&hour=00:00+-+23:00&separationType=businessDays', {
+      const response = await fetch(`https://backend-dashboards.prd.franqueado.grupoboticario.digital/disruption-by-period?years=2025&pillars=Todos&startCurrentCycle=2025${selectedCycle}&endCurrentCycle=2025${selectedCycle}&startPreviousCycle=202407&endPreviousCycle=202407&startCurrentDate=2025-05-12&endCurrentDate=2025-05-25&startPreviousDate=2024-05-13&endPreviousDate=2024-05-26&calendarType=cycle&previousPeriodCycleType=retail-year&previousPeriodCalendarType=retail-year&hour=00:00+-+23:00&separationType=businessDays`, {
         headers: {
           'accept': 'application/json, text/plain, */*',
           'accept-language': 'pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7',
@@ -315,6 +365,52 @@ export default function HomeScreen() {
       console.error('Erro ao buscar dados do ciclo atual:', error);
     } finally {
       setLoadingCurrentCycle(false);
+    }
+  };
+
+  const fetchHistoricalData = async () => {
+    try {
+      setLoadingHistorical(true);
+      const cycles = ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12', '13', '14', '15', '16', '17'];
+      const results: number[] = [];
+
+      // Busca dados para cada ciclo
+      for (const cycle of cycles) {
+        try {
+          const response = await fetch(`https://backend-dashboards.prd.franqueado.grupoboticario.digital/disruption-by-period?years=2025&pillars=Todos&startCurrentCycle=2025${cycle}&endCurrentCycle=2025${cycle}&startPreviousCycle=202407&endPreviousCycle=202407&startCurrentDate=2025-05-12&endCurrentDate=2025-05-25&startPreviousDate=2024-05-13&endPreviousDate=2024-05-26&calendarType=cycle&previousPeriodCycleType=retail-year&previousPeriodCalendarType=retail-year&hour=00:00+-+23:00&separationType=businessDays`, {
+            headers: {
+              'accept': 'application/json, text/plain, */*',
+              'accept-language': 'pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7',
+              'authorization': bearerToken,
+              'content-security-policy': 'default-src https:',
+              'cp-code': '10269',
+              'dash-view-name': 'direct-sales-rupture',
+              'origin': 'https://extranet.grupoboticario.com.br',
+              'priority': 'u=1, i',
+              'referer': 'https://extranet.grupoboticario.com.br/',
+              'revenue-type': 'gross-revenue',
+              'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36',
+              'x-api-key': '8V5pUI1u1y3dFASezqZYY6iZvkUXDHZO6Ol66ja5'
+            }
+          });
+          
+          const data = await response.json();
+          const franchisePercentage = parseFloat(data.data?.franchiseDisruptionPercentage?.replace(',', '.') || '0');
+          results.push(franchisePercentage);
+          
+          // Pequeno delay para não sobrecarregar a API
+          await new Promise(resolve => setTimeout(resolve, 100));
+        } catch (error) {
+          console.warn(`Erro ao buscar dados do ciclo ${cycle}:`, error);
+          results.push(0); // Fallback para 0 se der erro
+        }
+      }
+
+      setHistoricalData(results);
+    } catch (error) {
+      console.error('Erro ao buscar dados históricos:', error);
+    } finally {
+      setLoadingHistorical(false);
     }
   };
 
@@ -344,6 +440,29 @@ export default function HomeScreen() {
     } catch (error) {
       console.error('Erro ao salvar avatar:', error);
     }
+  };
+
+  // Componente para animar porcentagens
+  const AnimatedPercentage = ({ value, delay = 0 }: { value: string | undefined; delay?: number }) => {
+    if (!value) {
+      return (
+        <Text style={[styles.ruptureValueNumber, styles.highlightedText]}>
+          0,0%
+        </Text>
+      );
+    }
+    
+    const numericValue = parseFloat(value.replace(',', '.'));
+    const { value: animatedValue } = useCountAnimation(numericValue, { 
+      duration: 1500, 
+      delay 
+    });
+    
+    return (
+      <Text style={[styles.ruptureValueNumber, styles.highlightedText]}>
+        {animatedValue.toString().replace('.', ',')}%
+      </Text>
+    );
   };
 
   return (
@@ -418,6 +537,66 @@ export default function HomeScreen() {
         </Pressable>
       </Modal>
 
+      {/* Modal de Seleção de Ciclo */}
+      <Modal
+        visible={showCycleSelector}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowCycleSelector(false)}
+      >
+        <Pressable 
+          style={styles.modalOverlay}
+          onPress={() => setShowCycleSelector(false)}
+        >
+          <View style={styles.cycleModalContent}>
+            <View style={styles.cycleModalHeader}>
+              <Text style={styles.cycleModalTitle}>Selecionar Ciclo</Text>
+              <TouchableOpacity 
+                onPress={() => setShowCycleSelector(false)}
+                style={styles.closeButton}
+              >
+                <Text style={styles.closeButtonText}>✕</Text>
+              </TouchableOpacity>
+            </View>
+            <FlatList
+              data={['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12', '13', '14', '15', '16', '17']}
+              numColumns={4}
+              renderItem={({ item, index }) => {
+                const cycleData = historicalData[index] || 0;
+                const isDisabled = cycleData <= 0.1;
+                
+                return (
+                  <TouchableOpacity
+                    style={[
+                      styles.cycleOption,
+                      selectedCycle === item && styles.selectedCycle,
+                      isDisabled && styles.disabledCycle
+                    ]}
+                    onPress={() => {
+                      if (!isDisabled) {
+                        setSelectedCycle(item);
+                        setShowCycleSelector(false);
+                      }
+                    }}
+                    disabled={isDisabled}
+                  >
+                    <Text style={[
+                      styles.cycleOptionText,
+                      selectedCycle === item && styles.selectedCycleText,
+                      isDisabled && styles.disabledCycleText
+                    ]}>
+                      {item}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              }}
+              keyExtractor={(item) => item}
+              contentContainerStyle={styles.cycleGrid}
+            />
+          </View>
+        </Pressable>
+      </Modal>
+
       <ScrollView 
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
@@ -440,21 +619,15 @@ export default function HomeScreen() {
                   <>
                     <View style={styles.ruptureValueRow}>
                       <Text style={styles.ruptureValueLabel}>Ruptura Total:</Text>
-                      <Text style={[styles.ruptureValueNumber, { color: Colors.neutral[900] }]}>
-                        {ruptureData?.totalDisruptionPercentage.replace('.', ',')}%
-                      </Text>
+                      <AnimatedPercentage value={ruptureData?.totalDisruptionPercentage} delay={0} />
                     </View>
                     <View style={[styles.ruptureValueRow, styles.highlightedRow]}>
                       <Text style={[styles.ruptureValueLabel, styles.highlightedText]}>Causa Franqueado:</Text>
-                      <Text style={[styles.ruptureValueNumber, styles.highlightedText]}>
-                        {ruptureData?.franchiseDisruptionPercentage.replace('.', ',')}%
-                      </Text>
+                      <AnimatedPercentage value={ruptureData?.franchiseDisruptionPercentage} delay={200} />
                     </View>
                     <View style={styles.ruptureValueRow}>
                       <Text style={styles.ruptureValueLabel}>Causa Industria:</Text>
-                      <Text style={[styles.ruptureValueNumber, { color: Colors.neutral[900] }]}>
-                        {ruptureData?.industryDisruptionPercentage.replace('.', ',')}%
-                      </Text>
+                      <AnimatedPercentage value={ruptureData?.industryDisruptionPercentage} delay={400} />
                     </View>
                   </>
                 )}
@@ -464,9 +637,14 @@ export default function HomeScreen() {
             <View style={[styles.ruptureContainer, { backgroundColor: Colors.neutral[50] }]}>
               <View style={styles.ruptureHeader}>
                 <Text style={styles.ruptureTitle}>% Ruptura Causa Franqueado (IAF)</Text>
-                <View style={[styles.rupturePeriod, { backgroundColor: Colors.neutral[100] }]}>
-                  <Text style={[styles.rupturePeriodText, { color: Colors.neutral[700] }]}>Ciclo 2025/07</Text>
-                </View>
+                <TouchableOpacity 
+                  style={[styles.rupturePeriod, { backgroundColor: Colors.neutral[100] }]}
+                  onPress={() => setShowCycleSelector(true)}
+                >
+                  <Text style={[styles.rupturePeriodText, { color: Colors.neutral[700] }]}>
+                    Ciclo {selectedCycle} ▼
+                  </Text>
+                </TouchableOpacity>
               </View>
               <View style={styles.ruptureValues}>
                 {loadingCurrentCycle ? (
@@ -475,26 +653,97 @@ export default function HomeScreen() {
                   <>
                     <View style={styles.ruptureValueRow}>
                       <Text style={styles.ruptureValueLabel}>Ruptura Total:</Text>
-                      <Text style={[styles.ruptureValueNumber, { color: Colors.neutral[900] }]}>
-                        {currentCycleData?.totalDisruptionPercentage.replace('.', ',')}%
-                      </Text>
+                      <AnimatedPercentage value={currentCycleData?.totalDisruptionPercentage} delay={600} />
                     </View>
                     <View style={[styles.ruptureValueRow, styles.highlightedRow]}>
                       <Text style={[styles.ruptureValueLabel, styles.highlightedText]}>Causa Franqueado:</Text>
-                      <Text style={[styles.ruptureValueNumber, styles.highlightedText]}>
-                        {currentCycleData?.franchiseDisruptionPercentage.replace('.', ',')}%
-                      </Text>
+                      <AnimatedPercentage value={currentCycleData?.franchiseDisruptionPercentage} delay={800} />
                     </View>
                     <View style={styles.ruptureValueRow}>
                       <Text style={styles.ruptureValueLabel}>Causa Industria:</Text>
-                      <Text style={[styles.ruptureValueNumber, { color: Colors.neutral[900] }]}>
-                        {currentCycleData?.industryDisruptionPercentage.replace('.', ',')}%
-                      </Text>
+                      <AnimatedPercentage value={currentCycleData?.industryDisruptionPercentage} delay={1000} />
                     </View>
                   </>
                 )}
               </View>
             </View>
+          </View>
+        </Animated.View>
+
+        {/* Gráfico Histórico */}
+        <Animated.View entering={FadeInDown.duration(400).delay(250)}>
+          <Text style={styles.sectionTitle}>Histórico Ruptura - Causa Franqueado</Text>
+          <View style={styles.chartContainer}>
+            {loadingHistorical ? (
+              <View style={styles.chartLoadingContainer}>
+                <ActivityIndicator size="large" color={Colors.primary[500]} />
+                <Text style={styles.chartLoadingText}>Carregando histórico...</Text>
+              </View>
+            ) : (() => {
+              // Filtrar apenas dados válidos (> 0.1%)
+              const cycles = ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12', '13', '14', '15', '16', '17'];
+              const filteredData: number[] = [];
+              const filteredLabels: string[] = [];
+              
+              historicalData.forEach((value, index) => {
+                if (value > 0.1) {
+                  filteredData.push(value);
+                  filteredLabels.push(cycles[index]);
+                }
+              });
+
+              // Se não há dados válidos, mostrar mensagem
+              if (filteredData.length === 0) {
+                return (
+                  <View style={styles.chartLoadingContainer}>
+                    <Text style={styles.chartLoadingText}>Nenhum dado de ruptura disponível</Text>
+                  </View>
+                );
+              }
+
+              return (
+                <LineChart
+                  data={{
+                    labels: filteredLabels,
+                    datasets: [
+                      {
+                        data: filteredData,
+                        color: (opacity = 1) => `rgba(4, 80, 107, ${opacity})`, // Cor da linha
+                        strokeWidth: 3, // Espessura da linha
+                      },
+                    ],
+                    legend: ['% Ruptura Causa Franqueado'],
+                  }}
+                  width={Dimensions.get('window').width * 0.8} // 80% da largura da tela
+                  height={180} // Altura reduzida
+                  yAxisSuffix="%"
+                  yAxisInterval={1} // Intervalos no eixo Y
+                  chartConfig={{
+                    backgroundColor: Colors.white,
+                    backgroundGradientFrom: Colors.white,
+                    backgroundGradientTo: Colors.white,
+                    decimalPlaces: 1, // Casas decimais
+                    color: (opacity = 1) => `rgba(4, 80, 107, ${opacity})`,
+                    labelColor: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
+                    style: {
+                      borderRadius: 16,
+                    },
+                    propsForDots: {
+                      r: '6',
+                      strokeWidth: '2',
+                      stroke: '#04506B',
+                      fill: '#04506B',
+                    },
+                    propsForBackgroundLines: {
+                      strokeDasharray: '', // Linhas sólidas
+                      stroke: Colors.neutral[200],
+                    },
+                  }}
+                  bezier // Curva suave
+                  style={styles.chart}
+                />
+              );
+            })()}
           </View>
         </Animated.View>
 
@@ -554,8 +803,8 @@ export default function HomeScreen() {
                     params: { selectedProduct: product.code }
                   })}
                 >
-                  <Image 
-                    source={{ uri: product.image }} 
+                  <CachedImage 
+                    uri={product.image}
                     style={styles.topSellingImage}
                   />
                   <View style={styles.productInfo}>
@@ -954,5 +1203,80 @@ const styles = StyleSheet.create({
   avatarOptionImage: {
     width: '100%',
     height: '100%',
+  },
+  cycleModalContent: {
+    backgroundColor: Colors.white,
+    borderRadius: 16,
+    width: '90%',
+    maxWidth: 400,
+    padding: 20,
+  },
+  cycleModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  cycleModalTitle: {
+    fontFamily: 'Inter-SemiBold',
+    fontSize: 20,
+    color: Colors.neutral[900],
+  },
+  cycleOption: {
+    width: 60,
+    height: 40,
+    margin: 8,
+    borderRadius: 8,
+    borderWidth: 2,
+    borderColor: Colors.neutral[200],
+    backgroundColor: Colors.white,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  selectedCycle: {
+    borderColor: Colors.primary[500],
+    backgroundColor: Colors.primary[50],
+  },
+  cycleOptionText: {
+    fontFamily: 'Inter-Medium',
+    fontSize: 16,
+    color: Colors.neutral[900],
+  },
+  selectedCycleText: {
+    color: Colors.primary[500],
+    fontFamily: 'Inter-SemiBold',
+  },
+  cycleGrid: {
+    padding: 10,
+  },
+  chartContainer: {
+    backgroundColor: Colors.white,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 24,
+    alignItems: 'center',
+  },
+  chartLoadingContainer: {
+    height: 160,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  chartLoadingText: {
+    fontFamily: 'Inter-Medium',
+    fontSize: 14,
+    color: Colors.neutral[500],
+  },
+  chart: {
+    marginTop: 16,
+    alignSelf: 'center',
+  },
+  disabledCycle: {
+    backgroundColor: Colors.neutral[50],
+    borderColor: Colors.neutral[300],
+    opacity: 0.5,
+  },
+  disabledCycleText: {
+    color: Colors.neutral[400],
+    fontFamily: 'Inter-Regular',
   },
 });

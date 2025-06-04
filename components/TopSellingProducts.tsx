@@ -1,7 +1,19 @@
 import React from 'react';
 import { View, Text, StyleSheet, ScrollView, Image, TouchableOpacity } from 'react-native';
 import Colors from '@/constants/Colors';
-import { mockTopSellingData } from '@/data/mockData';
+import { CachedImage } from '@/components/CachedImage';
+
+// Mock data temporário
+const mockTopSellingData = [
+  {
+    id: '1',
+    name: 'Produto Exemplo',
+    category: 'Categoria',
+    image: 'https://via.placeholder.com/150',
+    price: 'R$ 50,00',
+    sold: 100
+  }
+];
 
 export function TopSellingProducts() {
   return (
@@ -13,7 +25,7 @@ export function TopSellingProducts() {
       {mockTopSellingData.map((product, index) => (
         <TouchableOpacity key={product.id} style={styles.productCard}>
           <View style={styles.imageContainer}>
-            <Image source={{ uri: product.image }} style={styles.productImage} />
+            <CachedImage uri={product.image} style={styles.productImage} />
             <View style={styles.rankBadge}>
               <Text style={styles.rankText}>{index + 1}</Text>
             </View>

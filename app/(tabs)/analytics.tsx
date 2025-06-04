@@ -11,15 +11,18 @@ import {
   FlatList,
   Platform,
   Alert,
-  ActivityIndicator
+  ActivityIndicator,
+  Keyboard,
+  TouchableWithoutFeedback
 } from 'react-native';
 import { useColorScheme } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Calendar as CalendarIcon, Clock, Users, MapPin, ChevronRight, Check, Plus, Info } from 'lucide-react-native';
+import { Calendar as CalendarIcon, Clock, Users, MapPin, ChevronRight, Check, Plus, Info, Trash2, RefreshCw } from 'lucide-react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import Colors from '@/constants/Colors';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface APIReserva {
   id: number;
@@ -34,6 +37,7 @@ interface APIReserva {
   status: string;
   created_at: string;
   updated_at: string;
+  criado_por?: string;
 }
 
 interface APIResponse {
@@ -52,6 +56,11 @@ interface Room {
     department: string;
     description: string;
   };
+  slotCounts?: {
+    available: number;
+    occupied: number;
+    total: number;
+  };
 }
 
 interface TimeSlot {
@@ -67,11 +76,42 @@ interface BookingInfo {
   description: string;
 }
 
-const API_BASE_URL = 'https://api.grupoginseng.com.br/';
+const API_BASE_URL = 'https://api.grupoginseng.com.br';
+
+// Função para formatar data local (evitar problemas de fuso horário)
+const formatDateLocal = (date: Date) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+// Função para obter data inicial inteligente
+const getInitialDate = () => {
+  const now = new Date();
+  const currentHour = now.getHours();
+  
+  // Se já passou das 18h, automaticamente vai para o próximo dia
+  if (currentHour >= 18) {
+    const tomorrow = new Date(now);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    return tomorrow;
+  }
+  
+  return now;
+};
+
+// Função para obter data mínima (início do dia atual)
+const getMinimumDate = () => {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0); // Início do dia
+  return today;
+};
 
 export default function AnalyticsScreen() {
   const colorScheme = useColorScheme();
-  const [selectedDate, setSelectedDate] = useState(new Date());
+  const { user } = useAuth();
+  const [selectedDate, setSelectedDate] = useState(getInitialDate());
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showRoomModal, setShowRoomModal] = useState(false);
   const [showBookingModal, setShowBookingModal] = useState(false);
@@ -85,6 +125,13 @@ export default function AnalyticsScreen() {
   const [reservas, setReservas] = useState<APIReserva[]>([]);
   const [loading, setLoading] = useState(true);
   const [submittingBooking, setSubmittingBooking] = useState(false);
+  const [showMyBookingsModal, setShowMyBookingsModal] = useState(false);
+  const [myBookings, setMyBookings] = useState<APIReserva[]>([]);
+  const [loadingMyBookings, setLoadingMyBookings] = useState(false);
+  const [deletingBooking, setDeletingBooking] = useState<number | null>(null);
+  
+  // Usando nome do usuário logado do contexto de autenticação
+  const currentUser = user?.name || 'Usuário';
 
   const rooms: Room[] = [
     { 
@@ -133,24 +180,47 @@ export default function AnalyticsScreen() {
   ];
 
   const timeSlots: TimeSlot[] = [
-    { id: '1', startTime: '08:00', endTime: '09:00', isAvailable: true },
-    { id: '2', startTime: '09:00', endTime: '10:00', isAvailable: true },
-    { id: '3', startTime: '10:00', endTime: '11:00', isAvailable: true },
-    { id: '4', startTime: '11:00', endTime: '12:00', isAvailable: true },
-    { id: '5', startTime: '13:00', endTime: '14:00', isAvailable: true },
-    { id: '6', startTime: '14:00', endTime: '15:00', isAvailable: true },
-    { id: '7', startTime: '15:00', endTime: '16:00', isAvailable: true },
-    { id: '8', startTime: '16:00', endTime: '17:00', isAvailable: true },
-    { id: '9', startTime: '17:00', endTime: '18:00', isAvailable: true },
+    { id: '1', startTime: '08:00', endTime: '08:30', isAvailable: true },
+    { id: '2', startTime: '08:30', endTime: '09:00', isAvailable: true },
+    { id: '3', startTime: '09:00', endTime: '09:30', isAvailable: true },
+    { id: '4', startTime: '09:30', endTime: '10:00', isAvailable: true },
+    { id: '5', startTime: '10:00', endTime: '10:30', isAvailable: true },
+    { id: '6', startTime: '10:30', endTime: '11:00', isAvailable: true },
+    { id: '7', startTime: '11:00', endTime: '11:30', isAvailable: true },
+    { id: '8', startTime: '11:30', endTime: '12:00', isAvailable: true },
+    { id: '9', startTime: '13:00', endTime: '13:30', isAvailable: true },
+    { id: '10', startTime: '13:30', endTime: '14:00', isAvailable: true },
+    { id: '11', startTime: '14:00', endTime: '14:30', isAvailable: true },
+    { id: '12', startTime: '14:30', endTime: '15:00', isAvailable: true },
+    { id: '13', startTime: '15:00', endTime: '15:30', isAvailable: true },
+    { id: '14', startTime: '15:30', endTime: '16:00', isAvailable: true },
+    { id: '15', startTime: '16:00', endTime: '16:30', isAvailable: true },
+    { id: '16', startTime: '16:30', endTime: '17:00', isAvailable: true },
+    { id: '17', startTime: '17:00', endTime: '17:30', isAvailable: true },
+    { id: '18', startTime: '17:30', endTime: '18:00', isAvailable: true },
   ];
 
   // Buscar reservas da API
-  const fetchReservas = async () => {
+  const fetchReservas = async (date?: Date) => {
     try {
       setLoading(true);
+      const targetDate = date || selectedDate;
+      const dateString = formatDateLocal(targetDate);
+      
+      console.log('Buscando reservas para a data:', dateString);
+      
       const response = await fetch(`${API_BASE_URL}/reservas`);
       const data: APIResponse = await response.json();
-      setReservas(data.data || []);
+      
+      // Filtrar apenas as reservas da data selecionada para otimizar performance
+      const reservasDoData = data.data?.filter(reserva => {
+        const reservaDate = reserva.data_reserva.split('T')[0];
+        return reservaDate === dateString;
+      }) || [];
+      
+      console.log(`Encontradas ${reservasDoData.length} reservas para ${dateString}`);
+      
+      setReservas(data.data || []); // Manter todas as reservas no estado para outras operações
     } catch (error) {
       console.error('Erro ao buscar reservas:', error);
       Alert.alert('Erro', 'Não foi possível carregar as reservas');
@@ -158,6 +228,18 @@ export default function AnalyticsScreen() {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    fetchReservas();
+  }, []);
+
+  // Buscar reservas sempre que a data mudar
+  useEffect(() => {
+    if (selectedDate) {
+      console.log('Data alterada, buscando novas reservas...');
+      fetchReservas(selectedDate);
+    }
+  }, [selectedDate]);
 
   // Criar nova reserva
   const createReserva = async (reservaData: any) => {
@@ -220,32 +302,9 @@ export default function AnalyticsScreen() {
     }
   };
 
-  // Testar conexão com a API
-  const testAPIConnection = async () => {
-    try {
-      console.log('Testando conexão com a API...');
-      const response = await fetch(`${API_BASE_URL}/reservas`);
-      console.log('Status do teste:', response.status);
-      
-      if (response.ok) {
-        const data = await response.json();
-        Alert.alert('Teste API', `Conexão OK! ${data.data?.length || 0} reservas encontradas`);
-      } else {
-        Alert.alert('Teste API', `Erro: ${response.status} - ${response.statusText}`);
-      }
-    } catch (error) {
-      console.error('Erro no teste da API:', error);
-      Alert.alert('Teste API', `Erro de conexão: ${error}`);
-    }
-  };
-
-  useEffect(() => {
-    fetchReservas();
-  }, []);
-
   // Verificar se um horário está ocupado para uma sala específica em uma data
   const isTimeSlotOccupied = (salaId: string, timeSlot: TimeSlot, date: Date) => {
-    const dateString = date.toISOString().split('T')[0];
+    const dateString = formatDateLocal(date);
     
     return reservas.some(reserva => {
       const reservaDate = reserva.data_reserva.split('T')[0];
@@ -267,7 +326,7 @@ export default function AnalyticsScreen() {
 
   // Obter informações da reserva para uma sala em um horário específico
   const getBookingInfo = (salaId: string, date: Date) => {
-    const dateString = date.toISOString().split('T')[0];
+    const dateString = formatDateLocal(date);
     
     const reserva = reservas.find(reserva => {
       const reservaDate = reserva.data_reserva.split('T')[0];
@@ -286,18 +345,30 @@ export default function AnalyticsScreen() {
     return undefined;
   };
 
+  // Contar horários disponíveis e ocupados para uma sala
+  const getSlotCounts = (roomId: string, date: Date) => {
+    const availableSlots = timeSlots.filter(slot => !isTimeSlotOccupied(roomId, slot, date));
+    const occupiedSlots = timeSlots.filter(slot => isTimeSlotOccupied(roomId, slot, date));
+    
+    return {
+      available: availableSlots.length,
+      occupied: occupiedSlots.length,
+      total: timeSlots.length
+    };
+  };
+
   // Atualizar as salas com base nas reservas
   const getUpdatedRooms = () => {
     return rooms.map(room => {
       const bookingInfo = getBookingInfo(room.id, selectedDate);
-      const allSlotsOccupied = timeSlots.every(slot => 
-        isTimeSlotOccupied(room.id, slot, selectedDate)
-      );
+      const slotCounts = getSlotCounts(room.id, selectedDate);
+      const allSlotsOccupied = slotCounts.available === 0;
 
       return {
         ...room,
         isAvailable: !allSlotsOccupied,
-        bookingInfo
+        bookingInfo,
+        slotCounts
       };
     });
   };
@@ -306,10 +377,48 @@ export default function AnalyticsScreen() {
   const getUpdatedTimeSlots = () => {
     if (!selectedRoom) return timeSlots;
 
-    return timeSlots.map(slot => ({
-      ...slot,
-      isAvailable: !isTimeSlotOccupied(selectedRoom.id, slot, selectedDate)
-    }));
+    const now = new Date();
+    const isToday = selectedDate.toDateString() === now.toDateString();
+    const currentHour = now.getHours();
+    const currentMinute = now.getMinutes();
+
+    return timeSlots
+      .filter(slot => {
+        // Se for hoje, ocultar horários que já passaram
+        if (isToday) {
+          const [slotHour, slotMinute] = slot.startTime.split(':').map(Number);
+          
+          // Se o horário já passou, não mostrar na lista
+          if (slotHour < currentHour || (slotHour === currentHour && slotMinute <= currentMinute)) {
+            return false;
+          }
+        }
+        return true;
+      })
+      .map(slot => ({
+        ...slot,
+        isAvailable: !isTimeSlotOccupied(selectedRoom.id, slot, selectedDate),
+      }));
+  };
+
+  // Verificar se precisa avançar automaticamente para o próximo dia
+  const checkAndAdvanceDate = () => {
+    const now = new Date();
+    const isToday = selectedDate.toDateString() === now.toDateString();
+    
+    if (isToday) {
+      const currentHour = now.getHours();
+      
+      // Se já passou das 18h, avançar para o próximo dia
+      if (currentHour >= 18) {
+        const tomorrow = new Date(selectedDate);
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        setSelectedDate(tomorrow);
+        return true;
+      }
+    }
+    
+    return false;
   };
 
   const formatDate = (date: Date) => {
@@ -323,7 +432,15 @@ export default function AnalyticsScreen() {
   const onDateChange = (event: any, selectedDate?: Date) => {
     setShowDatePicker(false);
     if (selectedDate) {
-      setSelectedDate(selectedDate);
+      const minimumDate = getMinimumDate();
+      
+      // Verificar se a data selecionada não é anterior a hoje
+      if (selectedDate >= minimumDate) {
+        setSelectedDate(selectedDate);
+      } else {
+        // Se tentar selecionar data passada, manter a data atual
+        console.log('Data passada selecionada, mantendo data atual');
+      }
     }
   };
 
@@ -370,7 +487,7 @@ export default function AnalyticsScreen() {
       }
 
       const reservaData = {
-        data_reserva: selectedDate.toISOString().split('T')[0],
+        data_reserva: formatDateLocal(selectedDate),
         horario_inicio: timeSlot.startTime + ':00',
         horario_fim: timeSlot.endTime + ':00',
         nome_responsavel: bookingInfo.responsibleName.trim(),
@@ -378,7 +495,8 @@ export default function AnalyticsScreen() {
         descricao: bookingInfo.description.trim() || '',
         sala_nome: selectedRoom.name,
         sala_id: selectedRoom.id,
-        status: 'ativa'
+        status: 'ativa',
+        criado_por: currentUser
       };
 
       console.log('Dados da reserva preparados:', reservaData);
@@ -402,12 +520,121 @@ export default function AnalyticsScreen() {
     });
   };
 
-  const isAllTimeSlotsOccupied = (room: Room) => {
-    const updatedTimeSlots = timeSlots.map(slot => ({
-      ...slot,
-      isAvailable: !isTimeSlotOccupied(room.id, slot, selectedDate)
-    }));
-    return updatedTimeSlots.every(slot => !slot.isAvailable);
+  // Excluir agendamento
+  const deleteBooking = async (bookingId: number) => {
+    Alert.alert(
+      'Excluir Agendamento',
+      'Tem certeza que deseja excluir este agendamento?',
+      [
+        {
+          text: 'Cancelar',
+          style: 'cancel',
+        },
+        {
+          text: 'Excluir',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              setDeletingBooking(bookingId);
+              console.log('Excluindo agendamento:', bookingId);
+              
+              const response = await fetch(`${API_BASE_URL}/reservas/${bookingId}`, {
+                method: 'DELETE',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+              });
+
+              if (response.ok) {
+                Alert.alert('Sucesso', 'Agendamento excluído com sucesso!');
+                fetchMyBookings(); // Recarregar lista
+                fetchReservas(); // Recarregar reservas gerais
+              } else {
+                throw new Error(`Erro HTTP ${response.status}`);
+              }
+            } catch (error) {
+              console.error('Erro ao excluir agendamento:', error);
+              Alert.alert('Erro', 'Não foi possível excluir o agendamento');
+            } finally {
+              setDeletingBooking(null);
+            }
+          },
+        },
+      ],
+    );
+  };
+
+  // Buscar agendamentos do usuário atual
+  const fetchMyBookings = async () => {
+    try {
+      setLoadingMyBookings(true);
+      
+      // Pegar o nome do usuário logado
+      const nomeUsuario = user?.name || 'Usuário';
+      
+      // Buscar todas as reservas da API
+      const response = await fetch(`${API_BASE_URL}/reservas`);
+      if (!response.ok) {
+        throw new Error(`Erro na API: ${response.status}`);
+      }
+      
+      const data: APIResponse = await response.json();
+      
+      const now = new Date();
+      const currentDate = formatDateLocal(now);
+      const currentHour = now.getHours();
+      const currentMinute = now.getMinutes();
+      
+      // Filtrar apenas os agendamentos criados por este usuário que ainda não passaram
+      const agendamentosDoUsuario = data.data?.filter(reserva => {
+        // Primeiro filtro: deve ser do usuário atual e estar ativo
+        if (reserva.criado_por !== nomeUsuario || reserva.status !== 'ativa') {
+          return false;
+        }
+        
+        const reservaDate = reserva.data_reserva.split('T')[0];
+        
+        // Se a reserva é de um dia futuro, sempre mostrar
+        if (reservaDate > currentDate) {
+          return true;
+        }
+        
+        // Se a reserva é de um dia passado, não mostrar
+        if (reservaDate < currentDate) {
+          return false;
+        }
+        
+        // Se a reserva é de hoje, verificar se ainda não passou
+        if (reservaDate === currentDate) {
+          const horarioFim = reserva.horario_fim.split('T')[1].substring(0, 5);
+          const [endHour, endMinute] = horarioFim.split(':').map(Number);
+          
+          // Se o horário de fim já passou, não mostrar
+          if (endHour < currentHour || (endHour === currentHour && endMinute <= currentMinute)) {
+            return false;
+          }
+        }
+        
+        return true;
+      }) || [];
+      
+      // Ordenar por data e horário (mais próximos primeiro)
+      agendamentosDoUsuario.sort((a, b) => {
+        const dataA = new Date(a.data_reserva + ' ' + a.horario_inicio.split('T')[1]);
+        const dataB = new Date(b.data_reserva + ' ' + b.horario_inicio.split('T')[1]);
+        return dataA.getTime() - dataB.getTime();
+      });
+      
+      // Atualizar o estado
+      setMyBookings(agendamentosDoUsuario);
+      
+    } catch (error) {
+      console.error('Erro ao buscar agendamentos do usuário:', error);
+      Alert.alert('Erro', 'Não foi possível carregar seus agendamentos. Verifique sua conexão.');
+      setMyBookings([]);
+    } finally {
+      setLoadingMyBookings(false);
+    }
   };
 
   // Obter salas atualizadas com dados da API
@@ -437,16 +664,19 @@ export default function AnalyticsScreen() {
         <Text style={styles.headerTitle}>Agendamento de Salas</Text>
         <View style={styles.headerButtons}>
           <TouchableOpacity 
-            onPress={testAPIConnection}
-            style={[styles.refreshButton, styles.testButton]}
+            onPress={() => {
+              setShowMyBookingsModal(true);
+              fetchMyBookings();
+            }}
+            style={[styles.refreshButton, styles.refreshIconButton]}
           >
-            <Text style={styles.refreshButtonText}>Testar API</Text>
+            <CalendarIcon size={20} color={Colors.white} />
           </TouchableOpacity>
           <TouchableOpacity 
-            onPress={fetchReservas}
-            style={styles.refreshButton}
+            onPress={() => fetchReservas()}
+            style={[styles.refreshButton, styles.refreshIconButton]}
           >
-            <Text style={styles.refreshButtonText}>Atualizar</Text>
+            <RefreshCw size={20} color={Colors.white} />
           </TouchableOpacity>
         </View>
       </View>
@@ -472,9 +702,11 @@ export default function AnalyticsScreen() {
                 key={room.id}
                 style={[
                   styles.roomCard,
-                  isAllTimeSlotsOccupied(room) && styles.roomCardUnavailable
+                  room.isAvailable === false && styles.roomCardUnavailable
                 ]}
                 onPress={() => {
+                  // Verificar se precisa avançar a data automaticamente
+                  checkAndAdvanceDate();
                   setSelectedRoom(room);
                   setShowRoomModal(true);
                 }}
@@ -496,24 +728,24 @@ export default function AnalyticsScreen() {
                       <Text style={styles.priorityText}>Prioridade: {room.priority}</Text>
                     </View>
                   )}
-                  {room.bookingInfo && (
-                    <View style={styles.bookingInfoContainer}>
-                      <Text style={styles.bookingInfoText}>
-                        Reservado por: {room.bookingInfo.responsibleName}
-                      </Text>
-                      <Text style={styles.bookingInfoText}>
-                        Depto: {room.bookingInfo.department}
-                      </Text>
-                    </View>
-                  )}
                 </View>
                 <View style={styles.roomStatus}>
-                  <Text style={[
-                    styles.roomStatusText,
-                    isAllTimeSlotsOccupied(room) ? styles.unavailableText : styles.availableText
-                  ]}>
-                    {isAllTimeSlotsOccupied(room) ? 'Ocupada' : 'Disponível'}
-                  </Text>
+                  {room.slotCounts && (
+                    <View style={styles.slotCountsContainer}>
+                      <View style={styles.slotCount}>
+                        <Text style={[styles.slotCountNumber, styles.availableText]}>
+                          {room.slotCounts.available}
+                        </Text>
+                        <Text style={styles.slotCountLabel}>Disponíveis</Text>
+                      </View>
+                      <View style={styles.slotCount}>
+                        <Text style={[styles.slotCountNumber, styles.occupiedText]}>
+                          {room.slotCounts.occupied}
+                        </Text>
+                        <Text style={styles.slotCountLabel}>Ocupados</Text>
+                      </View>
+                    </View>
+                  )}
                   <ChevronRight size={20} color={Colors.neutral[400]} />
                 </View>
               </TouchableOpacity>
@@ -575,7 +807,7 @@ export default function AnalyticsScreen() {
                     mode="date"
                     display="compact"
                     onChange={onDateChange}
-                    minimumDate={new Date()}
+                    minimumDate={getMinimumDate()}
                     locale="pt-BR"
                   />
                 ) : (
@@ -588,7 +820,7 @@ export default function AnalyticsScreen() {
                           value: selectedDate,
                           onChange: onDateChange,
                           mode: 'date',
-                          minimumDate: new Date(),
+                          minimumDate: getMinimumDate(),
                         });
                         if (action !== DateTimePickerAndroid.dismissedAction && year && month !== undefined && day) {
                           const newDate = new Date(year, month, day);
@@ -640,66 +872,80 @@ export default function AnalyticsScreen() {
           setSelectedTimeSlots([]);
         }}
       >
-        <Pressable 
-          style={styles.modalOverlay}
-          onPress={() => {
-            setShowRoomModal(false);
-            setSelectedTimeSlots([]);
-          }}
-        >
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>{selectedRoom?.name}</Text>
+        <View style={styles.modalOverlay}>
+          <Pressable 
+            style={styles.modalBackground}
+            onPress={() => {
+              setShowRoomModal(false);
+              setSelectedTimeSlots([]);
+            }}
+          />
+          <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+            <View style={styles.modalContent}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>{selectedRoom?.name}</Text>
+                <TouchableOpacity 
+                  onPress={() => {
+                    setShowRoomModal(false);
+                    setSelectedTimeSlots([]);
+                  }}
+                  style={styles.closeButton}
+                >
+                  <Text style={styles.closeButtonText}>✕</Text>
+                </TouchableOpacity>
+              </View>
+
+              <View style={styles.timeSlotsContainer}>
+                <Text style={styles.timeSlotsTitle}>Horários Disponíveis</Text>
+                <ScrollView 
+                  style={styles.timeSlotsScrollView}
+                  showsVerticalScrollIndicator={true}
+                  nestedScrollEnabled={true}
+                >
+                  {updatedTimeSlots.map((slot) => (
+                    <TouchableOpacity
+                      key={slot.id}
+                      style={[
+                        styles.timeSlot,
+                        !slot.isAvailable && styles.timeSlotUnavailable,
+                        selectedTimeSlots.includes(slot.id) && styles.timeSlotSelected
+                      ]}
+                      disabled={!slot.isAvailable}
+                      onPress={() => toggleTimeSlot(slot.id)}
+                    >
+                      <Clock size={16} color={Colors.neutral[500]} />
+                      <Text style={styles.timeSlotText}>
+                        {slot.startTime} - {slot.endTime}
+                      </Text>
+                      {selectedTimeSlots.includes(slot.id) && (
+                        <Check size={20} color={Colors.primary[500]} />
+                      )}
+                      {!slot.isAvailable && (
+                        <Text style={styles.unavailableText}>Ocupado</Text>
+                      )}
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+
               <TouchableOpacity 
-                onPress={() => {
-                  setShowRoomModal(false);
-                  setSelectedTimeSlots([]);
-                }}
-                style={styles.closeButton}
+                style={[
+                  styles.scheduleButton,
+                  selectedTimeSlots.length === 0 && styles.scheduleButtonDisabled
+                ]}
+                onPress={handleBooking}
+                disabled={selectedTimeSlots.length === 0}
               >
-                <Text style={styles.closeButtonText}>✕</Text>
+                <Text style={[
+                  styles.scheduleButtonText,
+                  selectedTimeSlots.length === 0 && styles.scheduleButtonTextDisabled
+                ]}>
+                  {selectedTimeSlots.length === 0 ? 'Selecione um horário' : 'Agendar Sala'}
+                </Text>
               </TouchableOpacity>
             </View>
-
-            <View style={styles.timeSlotsContainer}>
-              <Text style={styles.timeSlotsTitle}>Horários Disponíveis</Text>
-              {updatedTimeSlots.map((slot) => (
-                <TouchableOpacity
-                  key={slot.id}
-                  style={[
-                    styles.timeSlot,
-                    !slot.isAvailable && styles.timeSlotUnavailable,
-                    selectedTimeSlots.includes(slot.id) && styles.timeSlotSelected
-                  ]}
-                  disabled={!slot.isAvailable}
-                  onPress={() => toggleTimeSlot(slot.id)}
-                >
-                  <Clock size={16} color={Colors.neutral[500]} />
-                  <Text style={styles.timeSlotText}>
-                    {slot.startTime} - {slot.endTime}
-                  </Text>
-                  {selectedTimeSlots.includes(slot.id) && (
-                    <Check size={20} color={Colors.primary[500]} />
-                  )}
-                  {!slot.isAvailable && (
-                    <Text style={styles.unavailableText}>Ocupado</Text>
-                  )}
-                </TouchableOpacity>
-              ))}
-            </View>
-
-            <TouchableOpacity 
-              style={[
-                styles.scheduleButton,
-                selectedTimeSlots.length === 0 && styles.scheduleButtonDisabled
-              ]}
-              onPress={handleBooking}
-              disabled={selectedTimeSlots.length === 0}
-            >
-              <Text style={styles.scheduleButtonText}>Agendar Sala</Text>
-            </TouchableOpacity>
-          </View>
-        </Pressable>
+          </TouchableWithoutFeedback>
+        </View>
       </Modal>
 
       <Modal
@@ -708,93 +954,148 @@ export default function AnalyticsScreen() {
         animationType="slide"
         onRequestClose={() => setShowBookingModal(false)}
       >
-        <Pressable 
-          style={styles.modalOverlay}
-          onPress={() => setShowBookingModal(false)}
-        >
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Informações do Agendamento</Text>
+        <View style={styles.modalOverlay}>
+          <Pressable 
+            style={styles.modalBackground}
+            onPress={() => setShowBookingModal(false)}
+          />
+          <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+            <View style={styles.modalContent}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Informações do Agendamento</Text>
+                <TouchableOpacity 
+                  onPress={() => setShowBookingModal(false)}
+                  style={styles.closeButton}
+                >
+                  <Text style={styles.closeButtonText}>✕</Text>
+                </TouchableOpacity>
+              </View>
+
+              <View style={styles.bookingForm}>
+                <View style={styles.inputContainer}>
+                  <Text style={styles.inputLabel}>Nome do Responsável *</Text>
+                  <TextInput
+                    style={styles.input}
+                    value={bookingInfo.responsibleName}
+                    onChangeText={(text) => setBookingInfo(prev => ({ ...prev, responsibleName: text }))}
+                    placeholder="Digite o nome do responsável"
+                    placeholderTextColor={Colors.neutral[400]}
+                    editable={!submittingBooking}
+                  />
+                </View>
+
+                <View style={styles.inputContainer}>
+                  <Text style={styles.inputLabel}>Departamento *</Text>
+                  <TextInput
+                    style={styles.input}
+                    value={bookingInfo.department}
+                    onChangeText={(text) => setBookingInfo(prev => ({ ...prev, department: text }))}
+                    placeholder="Digite o departamento"
+                    placeholderTextColor={Colors.neutral[400]}
+                    editable={!submittingBooking}
+                  />
+                </View>
+
+                <View style={styles.inputContainer}>
+                  <Text style={styles.inputLabel}>Descrição</Text>
+                  <TextInput
+                    style={[styles.input, styles.textArea]}
+                    value={bookingInfo.description}
+                    onChangeText={(text) => setBookingInfo(prev => ({ ...prev, description: text }))}
+                    placeholder="Digite a descrição do agendamento"
+                    placeholderTextColor={Colors.neutral[400]}
+                    multiline
+                    numberOfLines={4}
+                    textAlignVertical="top"
+                    editable={!submittingBooking}
+                  />
+                </View>
+              </View>
+
               <TouchableOpacity 
-                onPress={() => setShowBookingModal(false)}
-                style={styles.closeButton}
+                style={[
+                  styles.scheduleButton,
+                  submittingBooking && styles.scheduleButtonDisabled
+                ]}
+                onPress={submitBooking}
+                disabled={submittingBooking}
               >
-                <Text style={styles.closeButtonText}>✕</Text>
+                {submittingBooking ? (
+                  <View style={styles.loadingButton}>
+                    <ActivityIndicator size="small" color={Colors.white} />
+                    <Text style={styles.scheduleButtonText}>Criando reserva...</Text>
+                  </View>
+                ) : (
+                  <Text style={styles.scheduleButtonText}>Confirmar Agendamento</Text>
+                )}
               </TouchableOpacity>
             </View>
+          </TouchableWithoutFeedback>
+        </View>
+      </Modal>
 
-            <View style={styles.bookingForm}>
-              <View style={styles.inputContainer}>
-                <Text style={styles.inputLabel}>Nome do Responsável *</Text>
-                <TextInput
-                  style={styles.input}
-                  value={bookingInfo.responsibleName}
-                  onChangeText={(text) => setBookingInfo(prev => ({ ...prev, responsibleName: text }))}
-                  placeholder="Digite o nome do responsável"
-                  placeholderTextColor={Colors.neutral[400]}
-                  editable={!submittingBooking}
-                />
+      <Modal
+        visible={showMyBookingsModal}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setShowMyBookingsModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <Pressable 
+            style={styles.modalBackground}
+            onPress={() => setShowMyBookingsModal(false)}
+          />
+          <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+            <View style={styles.modalContent}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Meus Agendamentos ({myBookings.length})</Text>
+                <TouchableOpacity 
+                  onPress={() => setShowMyBookingsModal(false)}
+                  style={styles.closeButton}
+                >
+                  <Text style={styles.closeButtonText}>✕</Text>
+                </TouchableOpacity>
               </View>
 
-              <View style={styles.inputContainer}>
-                <Text style={styles.inputLabel}>Departamento *</Text>
-                <TextInput
-                  style={styles.input}
-                  value={bookingInfo.department}
-                  onChangeText={(text) => setBookingInfo(prev => ({ ...prev, department: text }))}
-                  placeholder="Digite o departamento"
-                  placeholderTextColor={Colors.neutral[400]}
-                  editable={!submittingBooking}
-                />
-              </View>
-
-              <View style={styles.inputContainer}>
-                <Text style={styles.inputLabel}>Descrição</Text>
-                <TextInput
-                  style={[styles.input, styles.textArea]}
-                  value={bookingInfo.description}
-                  onChangeText={(text) => setBookingInfo(prev => ({ ...prev, description: text }))}
-                  placeholder="Digite a descrição do agendamento"
-                  placeholderTextColor={Colors.neutral[400]}
-                  multiline
-                  numberOfLines={4}
-                  textAlignVertical="top"
-                  editable={!submittingBooking}
-                />
-              </View>
-
-              <View style={styles.summaryContainer}>
-                <Text style={styles.summaryTitle}>Resumo da Reserva:</Text>
-                <Text style={styles.summaryText}>Sala: {selectedRoom?.name}</Text>
-                <Text style={styles.summaryText}>Data: {formatDate(selectedDate)}</Text>
-                <Text style={styles.summaryText}>
-                  Horários: {selectedTimeSlots.map(id => {
-                    const slot = timeSlots.find(s => s.id === id);
-                    return slot ? `${slot.startTime}-${slot.endTime}` : '';
-                  }).join(', ')}
-                </Text>
-              </View>
-            </View>
-
-            <TouchableOpacity 
-              style={[
-                styles.scheduleButton,
-                submittingBooking && styles.scheduleButtonDisabled
-              ]}
-              onPress={submitBooking}
-              disabled={submittingBooking}
-            >
-              {submittingBooking ? (
-                <View style={styles.loadingButton}>
-                  <ActivityIndicator size="small" color={Colors.white} />
-                  <Text style={styles.scheduleButtonText}>Criando reserva...</Text>
+              {myBookings.map((booking) => (
+                <View key={booking.id} style={{ backgroundColor: 'white', borderRadius: 8, padding: 15, marginBottom: 10, borderWidth: 1, borderColor: '#ddd' }}>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Text style={{ fontSize: 18, fontWeight: 'bold', color: 'black' }}>
+                      {booking.sala_nome}
+                    </Text>
+                    <TouchableOpacity 
+                      onPress={() => deleteBooking(booking.id)}
+                      style={{ backgroundColor: '#ff6b6b', padding: 8, borderRadius: 5 }}
+                    >
+                      <Text style={{ color: 'white', fontSize: 16 }}>✕</Text>
+                    </TouchableOpacity>
+                  </View>
+                  
+                  <Text style={{ fontSize: 14, color: 'gray', marginTop: 5 }}>
+                    📅 {booking.data_reserva.split('T')[0]}
+                  </Text>
+                  <Text style={{ fontSize: 14, color: 'gray' }}>
+                    🕐 {booking.horario_inicio.split('T')[1].substring(0, 5)} - {booking.horario_fim.split('T')[1].substring(0, 5)}
+                  </Text>
+                  
+                  <View style={{ marginTop: 10, paddingTop: 10, borderTopWidth: 1, borderTopColor: '#eee' }}>
+                    <Text style={{ fontSize: 14, color: 'black', marginBottom: 3 }}>
+                      👤 <Text style={{ fontWeight: 'bold' }}>Responsável:</Text> {booking.nome_responsavel}
+                    </Text>
+                    <Text style={{ fontSize: 14, color: 'black', marginBottom: 3 }}>
+                      🏢 <Text style={{ fontWeight: 'bold' }}>Departamento:</Text> {booking.departamento}
+                    </Text>
+                    {booking.descricao && (
+                      <Text style={{ fontSize: 14, color: 'black' }}>
+                        📝 <Text style={{ fontWeight: 'bold' }}>Descrição:</Text> {booking.descricao}
+                      </Text>
+                    )}
+                  </View>
                 </View>
-              ) : (
-                <Text style={styles.scheduleButtonText}>Confirmar Agendamento</Text>
-              )}
-            </TouchableOpacity>
-          </View>
-        </Pressable>
+              ))}
+            </View>
+          </TouchableWithoutFeedback>
+        </View>
       </Modal>
     </SafeAreaView>
   );
@@ -809,6 +1110,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 16,
     backgroundColor: '#04506B',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
   headerTitle: {
     fontFamily: 'Inter-SemiBold',
@@ -893,14 +1197,25 @@ const styles = StyleSheet.create({
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'flex-end',
+    justifyContent: 'flex-start',
+    paddingTop: 60,
   },
   modalContent: {
     backgroundColor: Colors.white,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
+    borderBottomLeftRadius: 20,
+    borderBottomRightRadius: 20,
     padding: 20,
     maxHeight: '80%',
+    marginHorizontal: 16,
+    marginVertical: 70,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
   },
   modalHeader: {
     flexDirection: 'row',
@@ -934,6 +1249,9 @@ const styles = StyleSheet.create({
     color: Colors.neutral[900],
     marginBottom: 12,
   },
+  timeSlotsScrollView: {
+    maxHeight: 250,
+  },
   timeSlot: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -964,12 +1282,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   scheduleButtonDisabled: {
-    opacity: 0.5,
+    backgroundColor: Colors.neutral[300],
+    opacity: 1,
   },
   scheduleButtonText: {
     fontFamily: 'Inter-SemiBold',
     fontSize: 16,
     color: Colors.white,
+  },
+  scheduleButtonTextDisabled: {
+    color: Colors.neutral[500],
   },
   priorityContainer: {
     marginTop: 8,
@@ -1163,7 +1485,91 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 12,
   },
-  testButton: {
+  slotCountsContainer: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  slotCount: {
+    flexDirection: 'column',
+    alignItems: 'center',
+  },
+  slotCountNumber: {
+    fontFamily: 'Inter-SemiBold',
+    fontSize: 16,
+    color: Colors.neutral[900],
+  },
+  slotCountLabel: {
+    fontFamily: 'Inter-Regular',
+    fontSize: 12,
+    color: Colors.neutral[500],
+  },
+  occupiedText: {
+    color: Colors.error[500],
+  },
+  modalBackground: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'transparent',
+  },
+  bookingCard: {
+    backgroundColor: Colors.white,
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: Colors.neutral[200],
+    marginBottom: 12,
+  },
+  bookingCardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  bookingCardTitle: {
+    fontFamily: 'Inter-SemiBold',
+    fontSize: 16,
+    color: Colors.neutral[900],
+  },
+  deleteButton: {
+    padding: 8,
+    borderRadius: 8,
+    backgroundColor: Colors.neutral[200],
+  },
+  bookingCardDetails: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 8,
+  },
+  bookingCardDetail: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  bookingCardDetailText: {
+    fontFamily: 'Inter-Regular',
+    fontSize: 14,
+    color: Colors.neutral[500],
+  },
+  bookingCardInfo: {
+    marginBottom: 8,
+  },
+  bookingCardLabel: {
+    fontFamily: 'Inter-Medium',
+    fontSize: 14,
+    color: Colors.neutral[700],
+  },
+  bookingCardValue: {
+    fontFamily: 'Inter-Regular',
+    fontSize: 14,
+    color: Colors.neutral[900],
+  },
+  refreshIconButton: {
+    padding: 8,
+    borderRadius: 8,
     backgroundColor: Colors.primary[500],
+    alignItems: 'center',
   },
 });

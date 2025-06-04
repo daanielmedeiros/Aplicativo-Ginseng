@@ -4,6 +4,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useFonts, Inter_400Regular, Inter_500Medium, Inter_600SemiBold } from '@expo-google-fonts/inter';
 import { SplashScreen } from 'expo-router';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
+import { ImageCacheProvider } from '@/contexts/ImageCacheContext';
 import { View, ActivityIndicator } from 'react-native';
 import Colors from '@/constants/Colors';
 
@@ -67,8 +68,10 @@ export default function RootLayout() {
 
   return (
     <AuthProvider>
-      <RootLayoutNav />
-      <StatusBar style="auto" />
+      <ImageCacheProvider>
+        <RootLayoutNav />
+        <StatusBar style="auto" />
+      </ImageCacheProvider>
     </AuthProvider>
   );
 }

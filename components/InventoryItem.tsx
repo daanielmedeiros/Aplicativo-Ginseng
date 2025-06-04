@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, Image, TouchableOpacity } from 'react-native';
 import { ChevronDown, ChevronUp, CreditCard as Edit, Trash } from 'lucide-react-native';
 import Colors from '@/constants/Colors';
+import { CachedImage } from '@/components/CachedImage';
 
 interface InventoryItemProps {
   item: {
@@ -51,7 +52,7 @@ export function InventoryItem({ item, expanded = false, onPress }: InventoryItem
         onPress={onPress}
       >
         <View style={styles.imageContainer}>
-          <Image source={{ uri: item.image }} style={styles.productImage} />
+          <CachedImage uri={item.image} style={styles.productImage} />
           {item.promotions && item.promotions.length > 0 && (
             <Image 
               source={require('@/assets/images/promo.gif')} 
