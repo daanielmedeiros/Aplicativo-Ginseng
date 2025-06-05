@@ -28,19 +28,10 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 const getRedirectUri = () => {
   if (Platform.OS === 'web') {
     // Para web, usar localhost
-    return 'https://app.danielmedeiros.fun/';
-  } else if (Platform.OS === 'android') {
-    // Para Android, usar um URI que funcione melhor com deep linking
-    return AuthSession.makeRedirectUri({
-      preferLocalhost: false,
-      isTripleSlashed: true,
-    });
+    return 'http://localhost:8081/';
   } else {
-    // Para iOS (que já está funcionando)
-    return AuthSession.makeRedirectUri({
-      preferLocalhost: true,
-      isTripleSlashed: true,
-    });
+    // Para mobile (iOS e Android), usar sempre o scheme customizado
+    return 'com.grupoginseng.app://auth';
   }
 };
 

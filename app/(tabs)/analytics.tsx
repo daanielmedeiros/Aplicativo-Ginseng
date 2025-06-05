@@ -129,9 +129,45 @@ export default function AnalyticsScreen() {
   const [myBookings, setMyBookings] = useState<APIReserva[]>([]);
   const [loadingMyBookings, setLoadingMyBookings] = useState(false);
   const [deletingBooking, setDeletingBooking] = useState<number | null>(null);
+  const [loadingRoomData, setLoadingRoomData] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(3);
+  const [showDepartmentDropdown, setShowDepartmentDropdown] = useState(false);
+  const [timeSlotFilter, setTimeSlotFilter] = useState<'available' | 'occupied'>('available');
+  const [occupiedSlotsPage, setOccupiedSlotsPage] = useState(1);
+  const [slotsPerPage] = useState(5);
   
   // Usando nome do usuário logado do contexto de autenticação
   const currentUser = user?.name || 'Usuário';
+
+  // Função para fechar modal de booking de forma segura
+  const closeBookingModal = () => {
+    console.log('=== INICIANDO FECHAMENTO SEGURO DO MODAL DE BOOKING ===');
+    try {
+      setShowBookingModal(false);
+      setShowDepartmentDropdown(false);
+      // Não limpar os dados do formulário aqui para preservar o que o usuário digitou
+      console.log('Modal de booking fechado com sucesso');
+    } catch (error) {
+      console.error('Erro ao fechar modal de booking:', error);
+    }
+  };
+
+  // Lista de departamentos pré-definidos
+  const departments = [
+    'Diretoria',
+    'Gente & Cultura',
+    'Administração',
+    'Financeiro',
+    'T.I',
+    'Auditoria',
+    'Suprimentos',
+    'Departamento Pessoal',
+    'Infraestrutura',
+    'Contabilidade',
+    'AMG',
+    'Outros'
+  ];
 
   const rooms: Room[] = [
     { 
@@ -241,11 +277,19 @@ export default function AnalyticsScreen() {
     }
   }, [selectedDate]);
 
-  // Criar nova reserva
-  const createReserva = async (reservaData: any) => {
+  // Debug: monitorar mudanças no estado do dropdown de departamento
+  useEffect(() => {
+    console.log('Estado showDepartmentDropdown mudou para:', showDepartmentDropdown);
+  }, [showDepartmentDropdown]);
+
+  // Debug: monitorar mudanças no estado do modal de booking
+  useEffect(() => {
+    console.log('Estado showBookingModal mudou para:', showBookingModal);
+  }, [showBookingModal]);
+
+  // Criar nova reserva (versão silenciosa para uso em lote)
+  const createReservaSilent = async (reservaData: any) => {
     try {
-      setSubmittingBooking(true);
-      
       console.log('Enviando dados para API:', reservaData);
       console.log('URL da API:', `${API_BASE_URL}/reservas`);
       
@@ -268,8 +312,6 @@ export default function AnalyticsScreen() {
         } catch (e) {
           console.log('Resposta não é JSON válido, mas request foi bem-sucedido');
         }
-        Alert.alert('Sucesso', 'Reserva criada com sucesso!');
-        fetchReservas(); // Recarregar as reservas
         return true;
       } else {
         // Tentar ler o erro da API
@@ -283,19 +325,33 @@ export default function AnalyticsScreen() {
         } catch (e) {
           console.log('Não foi possível ler o erro da API');
         }
-        
-        Alert.alert('Erro na API', errorMessage);
+        console.error('Erro na API:', errorMessage);
         return false;
       }
     } catch (error) {
       console.error('Erro de rede ou conexão:', error);
+      return false;
+    }
+  };
+
+  // Criar nova reserva
+  const createReserva = async (reservaData: any) => {
+    try {
+      setSubmittingBooking(true);
       
-      let errorMessage = 'Verifique sua conexão com a internet e tente novamente';
-      if (error instanceof Error) {
-        errorMessage += `\n\nDetalhes técnicos: ${error.message}`;
+      const success = await createReservaSilent(reservaData);
+      
+      if (success) {
+        Alert.alert('Sucesso', 'Reserva criada com sucesso!');
+        fetchReservas(); // Recarregar as reservas
+        return true;
+      } else {
+        Alert.alert('Erro', 'Não foi possível criar a reserva');
+        return false;
       }
-      
-      Alert.alert('Erro de Conexão', errorMessage);
+    } catch (error) {
+      console.error('Erro geral na criação de reserva:', error);
+      Alert.alert('Erro', 'Ocorreu um erro inesperado');
       return false;
     } finally {
       setSubmittingBooking(false);
@@ -345,15 +401,64 @@ export default function AnalyticsScreen() {
     return undefined;
   };
 
+  // Obter informações da reserva para um horário específico
+  const getTimeSlotBookingInfo = (salaId: string, timeSlot: TimeSlot, date: Date) => {
+    const dateString = formatDateLocal(date);
+    
+    const reserva = reservas.find(reserva => {
+      const reservaDate = reserva.data_reserva.split('T')[0];
+      const reservaStartTime = reserva.horario_inicio.split('T')[1]?.substring(0, 5) || 
+                              reserva.horario_inicio.substring(reserva.horario_inicio.length - 8, reserva.horario_inicio.length - 3);
+      const reservaEndTime = reserva.horario_fim.split('T')[1]?.substring(0, 5) || 
+                            reserva.horario_fim.substring(reserva.horario_fim.length - 8, reserva.horario_fim.length - 3);
+      
+      return reserva.sala_id === salaId && 
+             reservaDate === dateString &&
+             reserva.status === 'ativa' &&
+             (
+               (timeSlot.startTime >= reservaStartTime && timeSlot.startTime < reservaEndTime) ||
+               (timeSlot.endTime > reservaStartTime && timeSlot.endTime <= reservaEndTime) ||
+               (timeSlot.startTime <= reservaStartTime && timeSlot.endTime >= reservaEndTime)
+             );
+    });
+
+    if (reserva) {
+      return {
+        responsibleName: reserva.nome_responsavel,
+        department: reserva.departamento,
+        description: reserva.descricao
+      };
+    }
+    return undefined;
+  };
+
   // Contar horários disponíveis e ocupados para uma sala
   const getSlotCounts = (roomId: string, date: Date) => {
-    const availableSlots = timeSlots.filter(slot => !isTimeSlotOccupied(roomId, slot, date));
-    const occupiedSlots = timeSlots.filter(slot => isTimeSlotOccupied(roomId, slot, date));
+    const now = new Date();
+    const isToday = date.toDateString() === now.toDateString();
+    const currentHour = now.getHours();
+    const currentMinute = now.getMinutes();
+
+    // Filtrar apenas os horários que ainda não passaram (se for hoje)
+    const validTimeSlots = timeSlots.filter(slot => {
+      if (isToday) {
+        const [slotHour, slotMinute] = slot.startTime.split(':').map(Number);
+        
+        // Se o horário já passou, não contar
+        if (slotHour < currentHour || (slotHour === currentHour && slotMinute <= currentMinute)) {
+          return false;
+        }
+      }
+      return true;
+    });
+
+    const availableSlots = validTimeSlots.filter(slot => !isTimeSlotOccupied(roomId, slot, date));
+    const occupiedSlots = validTimeSlots.filter(slot => isTimeSlotOccupied(roomId, slot, date));
     
     return {
       available: availableSlots.length,
       occupied: occupiedSlots.length,
-      total: timeSlots.length
+      total: validTimeSlots.length
     };
   };
 
@@ -472,52 +577,84 @@ export default function AnalyticsScreen() {
       return;
     }
 
-    console.log('=== INÍCIO DO ENVIO DE RESERVA ===');
-    console.log('Sala selecionada:', selectedRoom);
-    console.log('Data selecionada:', selectedDate);
-    console.log('Horários selecionados:', selectedTimeSlots);
-    console.log('Informações da reserva:', bookingInfo);
+    try {
+      setSubmittingBooking(true);
 
-    // Criar uma reserva para cada horário selecionado
-    for (const timeSlotId of selectedTimeSlots) {
-      const timeSlot = timeSlots.find(slot => slot.id === timeSlotId);
-      if (!timeSlot) {
-        console.log('TimeSlot não encontrado:', timeSlotId);
-        continue;
+      console.log('=== INÍCIO DO ENVIO DE RESERVA ===');
+      console.log('Sala selecionada:', selectedRoom);
+      console.log('Data selecionada:', selectedDate);
+      console.log('Horários selecionados:', selectedTimeSlots);
+      console.log('Informações da reserva:', bookingInfo);
+
+      let successCount = 0;
+      let failCount = 0;
+
+      // Criar uma reserva para cada horário selecionado
+      for (const timeSlotId of selectedTimeSlots) {
+        const timeSlot = timeSlots.find(slot => slot.id === timeSlotId);
+        if (!timeSlot) {
+          console.log('TimeSlot não encontrado:', timeSlotId);
+          failCount++;
+          continue;
+        }
+
+        const reservaData = {
+          data_reserva: formatDateLocal(selectedDate),
+          horario_inicio: timeSlot.startTime + ':00',
+          horario_fim: timeSlot.endTime + ':00',
+          nome_responsavel: bookingInfo.responsibleName.trim(),
+          departamento: bookingInfo.department.trim(),
+          descricao: bookingInfo.description.trim() || '',
+          sala_nome: selectedRoom.name,
+          sala_id: selectedRoom.id,
+          status: 'ativa',
+          criado_por: currentUser
+        };
+
+        console.log('Dados da reserva preparados:', reservaData);
+
+        const success = await createReservaSilent(reservaData); // Usar versão silenciosa
+        if (success) {
+          successCount++;
+        } else {
+          failCount++;
+          console.log('Falha ao criar reserva para horário:', timeSlot.startTime);
+        }
       }
 
-      const reservaData = {
-        data_reserva: formatDateLocal(selectedDate),
-        horario_inicio: timeSlot.startTime + ':00',
-        horario_fim: timeSlot.endTime + ':00',
-        nome_responsavel: bookingInfo.responsibleName.trim(),
-        departamento: bookingInfo.department.trim(),
-        descricao: bookingInfo.description.trim() || '',
-        sala_nome: selectedRoom.name,
-        sala_id: selectedRoom.id,
-        status: 'ativa',
-        criado_por: currentUser
-      };
+      console.log('=== PROCESSO DE RESERVAS FINALIZADO ===');
+      console.log(`Sucessos: ${successCount}, Falhas: ${failCount}`);
 
-      console.log('Dados da reserva preparados:', reservaData);
-
-      const success = await createReserva(reservaData);
-      if (!success) {
-        console.log('Falha ao criar reserva, parando o processo');
-        return; // Parar se houve erro
+      // Mostrar apenas um alert com o resultado final
+      if (successCount > 0 && failCount === 0) {
+        Alert.alert('Sucesso', `${successCount} horário(s) reservado(s) com sucesso!`);
+      } else if (successCount > 0 && failCount > 0) {
+        Alert.alert('Parcialmente Concluído', `${successCount} horário(s) reservado(s) com sucesso, ${failCount} falharam.`);
+      } else {
+        Alert.alert('Erro', 'Não foi possível criar nenhuma reserva.');
+        return;
       }
+
+      // Recarregar dados
+      await fetchReservas();
+
+      // Limpar formulário e fechar modals apenas se houve algum sucesso
+      if (successCount > 0) {
+        setShowBookingModal(false);
+        setSelectedTimeSlots([]);
+        setBookingInfo({
+          responsibleName: '',
+          department: '',
+          description: ''
+        });
+      }
+
+    } catch (error) {
+      console.error('Erro geral no processo de reserva:', error);
+      Alert.alert('Erro', 'Ocorreu um erro inesperado. Tente novamente.');
+    } finally {
+      setSubmittingBooking(false);
     }
-
-    console.log('=== TODAS AS RESERVAS CRIADAS COM SUCESSO ===');
-
-    // Limpar formulário e fechar modals
-    setShowBookingModal(false);
-    setSelectedTimeSlots([]);
-    setBookingInfo({
-      responsibleName: '',
-      department: '',
-      description: ''
-    });
   };
 
   // Excluir agendamento
@@ -637,6 +774,28 @@ export default function AnalyticsScreen() {
     }
   };
 
+  // Funções para paginação
+  const totalPages = Math.ceil(myBookings.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const currentBookings = myBookings.slice(startIndex, endIndex);
+
+  const goToNextPage = () => {
+    if (currentPage < totalPages) {
+      setCurrentPage(currentPage + 1);
+    }
+  };
+
+  const goToPreviousPage = () => {
+    if (currentPage > 1) {
+      setCurrentPage(currentPage - 1);
+    }
+  };
+
+  const resetPagination = () => {
+    setCurrentPage(1);
+  };
+
   // Obter salas atualizadas com dados da API
   const updatedRooms = getUpdatedRooms();
   const updatedTimeSlots = getUpdatedTimeSlots();
@@ -667,6 +826,7 @@ export default function AnalyticsScreen() {
             onPress={() => {
               setShowMyBookingsModal(true);
               fetchMyBookings();
+              resetPagination();
             }}
             style={[styles.refreshButton, styles.refreshIconButton]}
           >
@@ -702,12 +862,26 @@ export default function AnalyticsScreen() {
                 key={room.id}
                 style={[
                   styles.roomCard,
-                  room.isAvailable === false && styles.roomCardUnavailable
+                  room.isAvailable === false && styles.roomCardUnavailable,
+                  loadingRoomData && styles.roomCardLoading
                 ]}
-                onPress={() => {
+                disabled={loadingRoomData}
+                onPress={async () => {
                   // Verificar se precisa avançar a data automaticamente
                   checkAndAdvanceDate();
+                  
+                  console.log('Atualizando dados das reservas ao clicar na sala:', room.name);
+                  
+                  // Atualizar dados das reservas antes de abrir o modal
+                  setLoadingRoomData(true);
+                  await fetchReservas();
+                  setLoadingRoomData(false);
+                  
+                  console.log('Dados atualizados, abrindo modal da sala:', room.name);
+                  
                   setSelectedRoom(room);
+                  setTimeSlotFilter('available'); // Resetar filtro ao abrir modal
+                  setOccupiedSlotsPage(1); // Resetar página de ocupados
                   setShowRoomModal(true);
                 }}
               >
@@ -732,21 +906,28 @@ export default function AnalyticsScreen() {
                 <View style={styles.roomStatus}>
                   {room.slotCounts && (
                     <View style={styles.slotCountsContainer}>
-                      <View style={styles.slotCount}>
-                        <Text style={[styles.slotCountNumber, styles.availableText]}>
-                          {room.slotCounts.available}
-                        </Text>
-                        <Text style={styles.slotCountLabel}>Disponíveis</Text>
-                      </View>
-                      <View style={styles.slotCount}>
-                        <Text style={[styles.slotCountNumber, styles.occupiedText]}>
-                          {room.slotCounts.occupied}
-                        </Text>
-                        <Text style={styles.slotCountLabel}>Ocupados</Text>
+                      <Text style={styles.slotCountsTitle}>Horários:</Text>
+                      <View style={styles.slotCountsRow}>
+                        <View style={styles.slotCount}>
+                          <Text style={[styles.slotCountNumber, styles.availableText]}>
+                            {room.slotCounts.available}
+                          </Text>
+                          <Text style={styles.slotCountLabel}>Disponíveis</Text>
+                        </View>
+                        <View style={styles.slotCount}>
+                          <Text style={[styles.slotCountNumber, styles.occupiedText]}>
+                            {room.slotCounts.occupied}
+                          </Text>
+                          <Text style={styles.slotCountLabel}>Ocupados</Text>
+                        </View>
                       </View>
                     </View>
                   )}
-                  <ChevronRight size={20} color={Colors.neutral[400]} />
+                  {loadingRoomData ? (
+                    <ActivityIndicator size="small" color={Colors.primary[500]} />
+                  ) : (
+                    <ChevronRight size={20} color={Colors.neutral[400]} />
+                  )}
                 </View>
               </TouchableOpacity>
             ))}
@@ -896,36 +1077,169 @@ export default function AnalyticsScreen() {
               </View>
 
               <View style={styles.timeSlotsContainer}>
-                <Text style={styles.timeSlotsTitle}>Horários Disponíveis</Text>
-                <ScrollView 
-                  style={styles.timeSlotsScrollView}
-                  showsVerticalScrollIndicator={true}
-                  nestedScrollEnabled={true}
-                >
-                  {updatedTimeSlots.map((slot) => (
-                    <TouchableOpacity
-                      key={slot.id}
-                      style={[
-                        styles.timeSlot,
-                        !slot.isAvailable && styles.timeSlotUnavailable,
-                        selectedTimeSlots.includes(slot.id) && styles.timeSlotSelected
-                      ]}
-                      disabled={!slot.isAvailable}
-                      onPress={() => toggleTimeSlot(slot.id)}
-                    >
-                      <Clock size={16} color={Colors.neutral[500]} />
-                      <Text style={styles.timeSlotText}>
-                        {slot.startTime} - {slot.endTime}
-                      </Text>
-                      {selectedTimeSlots.includes(slot.id) && (
-                        <Check size={20} color={Colors.primary[500]} />
-                      )}
-                      {!slot.isAvailable && (
-                        <Text style={styles.unavailableText}>Ocupado</Text>
-                      )}
-                    </TouchableOpacity>
-                  ))}
-                </ScrollView>
+                <Text style={styles.timeSlotsTitle}>Horários:</Text>
+                
+                {/* Botões de filtro */}
+                <View style={styles.filterButtonsContainer}>
+                  <TouchableOpacity
+                    style={[
+                      styles.filterButton,
+                      timeSlotFilter === 'available' && styles.filterButtonActive
+                    ]}
+                    onPress={() => {
+                      console.log('Filtro disponível selecionado');
+                      setTimeSlotFilter('available');
+                      setOccupiedSlotsPage(1); // Reset página
+                    }}
+                  >
+                    <Text style={[
+                      styles.filterButtonText,
+                      timeSlotFilter === 'available' && styles.filterButtonTextActive
+                    ]}>
+                      Disponível
+                    </Text>
+                  </TouchableOpacity>
+                  
+                  <TouchableOpacity
+                    style={[
+                      styles.filterButton,
+                      timeSlotFilter === 'occupied' && styles.filterButtonActive
+                    ]}
+                    onPress={() => {
+                      console.log('Filtro ocupado selecionado');
+                      setTimeSlotFilter('occupied');
+                      setOccupiedSlotsPage(1); // Reset página
+                    }}
+                  >
+                    <Text style={[
+                      styles.filterButtonText,
+                      timeSlotFilter === 'occupied' && styles.filterButtonTextActive
+                    ]}>
+                      Ocupado
+                    </Text>
+                  </TouchableOpacity>
+                  
+
+                </View>
+                
+{timeSlotFilter === 'occupied' ? (
+                  // Paginação para horários ocupados
+                  <>
+                    <View style={{ minHeight: 250 }}>
+                      {(() => {
+                        const occupiedSlots = updatedTimeSlots.filter(slot => !slot.isAvailable);
+                        const totalOccupiedPages = Math.ceil(occupiedSlots.length / slotsPerPage);
+                        const startIndex = (occupiedSlotsPage - 1) * slotsPerPage;
+                        const endIndex = startIndex + slotsPerPage;
+                        const currentOccupiedSlots = occupiedSlots.slice(startIndex, endIndex);
+                        
+                        return currentOccupiedSlots.map((slot) => {
+                          const bookingInfo = selectedRoom ? 
+                            getTimeSlotBookingInfo(selectedRoom.id, slot, selectedDate) : null;
+                          
+                          return (
+                            <View key={slot.id} style={[styles.timeSlot, styles.timeSlotUnavailable]}>
+                              <Clock size={16} color={Colors.neutral[500]} />
+                              <Text style={styles.timeSlotText}>
+                                {slot.startTime} - {slot.endTime}
+                              </Text>
+                              <View style={styles.timeSlotInfo}>
+                                {bookingInfo && (
+                                  <Text style={styles.bookingInfoText}>
+                                    Ocupado - {bookingInfo.responsibleName} - {bookingInfo.department}
+                                  </Text>
+                                )}
+                                {!bookingInfo && (
+                                  <Text style={styles.bookingInfoText}>Ocupado</Text>
+                                )}
+                              </View>
+                            </View>
+                          );
+                        });
+                      })()}
+                    </View>
+                    
+                    {/* Paginação para horários ocupados */}
+                    {(() => {
+                      const occupiedSlots = updatedTimeSlots.filter(slot => !slot.isAvailable);
+                      const totalOccupiedPages = Math.ceil(occupiedSlots.length / slotsPerPage);
+                      
+                      if (totalOccupiedPages > 1) {
+                        return (
+                          <View style={styles.paginationContainer}>
+                            <TouchableOpacity 
+                              onPress={() => {
+                                if (occupiedSlotsPage > 1) {
+                                  setOccupiedSlotsPage(occupiedSlotsPage - 1);
+                                }
+                              }}
+                              style={[
+                                styles.paginationButton,
+                                occupiedSlotsPage === 1 && styles.paginationButtonDisabled
+                              ]}
+                              disabled={occupiedSlotsPage === 1}
+                            >
+                              <Text style={[
+                                styles.paginationButtonText,
+                                occupiedSlotsPage === 1 && styles.paginationButtonTextDisabled
+                              ]}>Anterior</Text>
+                            </TouchableOpacity>
+                            <Text style={styles.paginationText}>
+                              Página {occupiedSlotsPage} de {totalOccupiedPages}
+                            </Text>
+                            <TouchableOpacity 
+                              onPress={() => {
+                                if (occupiedSlotsPage < totalOccupiedPages) {
+                                  setOccupiedSlotsPage(occupiedSlotsPage + 1);
+                                }
+                              }}
+                              style={[
+                                styles.paginationButton,
+                                occupiedSlotsPage === totalOccupiedPages && styles.paginationButtonDisabled
+                              ]}
+                              disabled={occupiedSlotsPage === totalOccupiedPages}
+                            >
+                              <Text style={[
+                                styles.paginationButtonText,
+                                occupiedSlotsPage === totalOccupiedPages && styles.paginationButtonTextDisabled
+                              ]}>Próximo</Text>
+                            </TouchableOpacity>
+                          </View>
+                        );
+                      }
+                      return null;
+                    })()}
+                  </>
+                ) : (
+                  // FlatList para horários disponíveis (mantém scroll)
+                  <FlatList
+                    style={{ maxHeight: 400 }}
+                    showsVerticalScrollIndicator={true}
+                    keyboardShouldPersistTaps="handled"
+                    data={updatedTimeSlots.filter(slot => slot.isAvailable)}
+                    keyExtractor={(slot) => slot.id}
+                    renderItem={({ item: slot }) => (
+                      <TouchableOpacity
+                        style={[
+                          styles.timeSlot,
+                          selectedTimeSlots.includes(slot.id) && styles.timeSlotSelected
+                        ]}
+                        onPress={() => toggleTimeSlot(slot.id)}
+                      >
+                        <Clock size={16} color={Colors.neutral[500]} />
+                        <Text style={styles.timeSlotText}>
+                          {slot.startTime} - {slot.endTime}
+                        </Text>
+                        <View style={styles.timeSlotInfo}>
+                          {/* Slot disponível */}
+                        </View>
+                        {selectedTimeSlots.includes(slot.id) && (
+                          <Check size={20} color={Colors.primary[500]} />
+                        )}
+                      </TouchableOpacity>
+                    )}
+                  />
+                )}
               </View>
 
               <TouchableOpacity 
@@ -952,19 +1266,27 @@ export default function AnalyticsScreen() {
         visible={showBookingModal}
         transparent={true}
         animationType="slide"
-        onRequestClose={() => setShowBookingModal(false)}
+        onRequestClose={() => {
+          console.log('Modal de booking sendo fechado via onRequestClose');
+          closeBookingModal();
+        }}
       >
         <View style={styles.modalOverlay}>
           <Pressable 
             style={styles.modalBackground}
-            onPress={() => setShowBookingModal(false)}
+            onPress={() => {
+              console.log('Modal de booking sendo fechado via Pressable');
+              closeBookingModal();
+            }}
           />
-          <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-            <View style={styles.modalContent}>
+          <View style={styles.modalContent}>
               <View style={styles.modalHeader}>
                 <Text style={styles.modalTitle}>Informações do Agendamento</Text>
                 <TouchableOpacity 
-                  onPress={() => setShowBookingModal(false)}
+                  onPress={() => {
+                    console.log('Modal de booking sendo fechado via botão X');
+                    closeBookingModal();
+                  }}
                   style={styles.closeButton}
                 >
                   <Text style={styles.closeButtonText}>✕</Text>
@@ -978,23 +1300,84 @@ export default function AnalyticsScreen() {
                     style={styles.input}
                     value={bookingInfo.responsibleName}
                     onChangeText={(text) => setBookingInfo(prev => ({ ...prev, responsibleName: text }))}
+                    onFocus={() => {
+                      console.log('Campo nome recebeu foco - fechando dropdown');
+                      if (showDepartmentDropdown) {
+                        setShowDepartmentDropdown(false);
+                      }
+                    }}
                     placeholder="Digite o nome do responsável"
                     placeholderTextColor={Colors.neutral[400]}
                     editable={!submittingBooking}
                   />
                 </View>
 
-                <View style={styles.inputContainer}>
-                  <Text style={styles.inputLabel}>Departamento *</Text>
-                  <TextInput
-                    style={styles.input}
-                    value={bookingInfo.department}
-                    onChangeText={(text) => setBookingInfo(prev => ({ ...prev, department: text }))}
-                    placeholder="Digite o departamento"
-                    placeholderTextColor={Colors.neutral[400]}
-                    editable={!submittingBooking}
-                  />
-                </View>
+                <TouchableWithoutFeedback>
+                  <View style={styles.inputContainer}>
+                    <Text style={styles.inputLabel}>Departamento *</Text>
+                    <TouchableOpacity
+                      style={[styles.input, styles.departmentSelector]}
+                      onPress={() => {
+                        console.log('=== CLIQUE NO DROPDOWN DE DEPARTAMENTO ===');
+                        console.log('Estado atual showDepartmentDropdown:', showDepartmentDropdown);
+                        
+                        // Fechar teclado se estiver aberto
+                        Keyboard.dismiss();
+                        console.log('Teclado fechado');
+                        
+                        setShowDepartmentDropdown(!showDepartmentDropdown);
+                      }}
+                      disabled={submittingBooking}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={[
+                        styles.departmentSelectorText,
+                        !bookingInfo.department && styles.placeholderText
+                      ]}>
+                        {bookingInfo.department || 'Selecione o departamento'}
+                      </Text>
+                      <ChevronRight 
+                        size={20} 
+                        color={Colors.neutral[500]} 
+                        style={{
+                          transform: [{ rotate: showDepartmentDropdown ? '90deg' : '0deg' }]
+                        }}
+                      />
+                    </TouchableOpacity>
+                    
+                    {/* Dropdown de departamentos */}
+                    {showDepartmentDropdown && (
+                      <View style={styles.departmentDropdown}>
+                        <ScrollView style={styles.departmentDropdownScroll} nestedScrollEnabled={true}>
+                          {departments.map((department, index) => (
+                            <TouchableOpacity
+                              key={index}
+                              style={[
+                                styles.departmentDropdownItem,
+                                bookingInfo.department === department && styles.departmentDropdownItemSelected
+                              ]}
+                              onPress={() => {
+                                console.log('=== SELECIONANDO DEPARTAMENTO NO DROPDOWN ===', department);
+                                setBookingInfo(prev => ({ ...prev, department }));
+                                setShowDepartmentDropdown(false);
+                              }}
+                            >
+                              <Text style={[
+                                styles.departmentDropdownItemText,
+                                bookingInfo.department === department && styles.departmentDropdownItemTextSelected
+                              ]}>
+                                {department}
+                              </Text>
+                              {bookingInfo.department === department && (
+                                <Check size={16} color={Colors.primary[500]} />
+                              )}
+                            </TouchableOpacity>
+                          ))}
+                        </ScrollView>
+                      </View>
+                    )}
+                  </View>
+                </TouchableWithoutFeedback>
 
                 <View style={styles.inputContainer}>
                   <Text style={styles.inputLabel}>Descrição</Text>
@@ -1002,6 +1385,12 @@ export default function AnalyticsScreen() {
                     style={[styles.input, styles.textArea]}
                     value={bookingInfo.description}
                     onChangeText={(text) => setBookingInfo(prev => ({ ...prev, description: text }))}
+                    onFocus={() => {
+                      console.log('Campo descrição recebeu foco - fechando dropdown');
+                      if (showDepartmentDropdown) {
+                        setShowDepartmentDropdown(false);
+                      }
+                    }}
                     placeholder="Digite a descrição do agendamento"
                     placeholderTextColor={Colors.neutral[400]}
                     multiline
@@ -1030,7 +1419,6 @@ export default function AnalyticsScreen() {
                 )}
               </TouchableOpacity>
             </View>
-          </TouchableWithoutFeedback>
         </View>
       </Modal>
 
@@ -1057,46 +1445,96 @@ export default function AnalyticsScreen() {
                 </TouchableOpacity>
               </View>
 
-              {myBookings.map((booking) => (
-                <View key={booking.id} style={{ backgroundColor: 'white', borderRadius: 8, padding: 15, marginBottom: 10, borderWidth: 1, borderColor: '#ddd' }}>
-                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <Text style={{ fontSize: 18, fontWeight: 'bold', color: 'black' }}>
-                      {booking.sala_nome}
+              {myBookings.length === 0 ? (
+                <View style={styles.emptyContainer}>
+                  <Text style={styles.emptyText}>Nenhum agendamento encontrado</Text>
+                </View>
+              ) : (
+                <>
+                  <View style={styles.bookingsContainer}>
+                    {currentBookings.map((booking) => (
+                      <View key={booking.id} style={{ backgroundColor: 'white', borderRadius: 8, padding: 15, marginBottom: 10, borderWidth: 1, borderColor: '#ddd' }}>
+                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                          <Text style={{ fontSize: 18, fontWeight: 'bold', color: 'black' }}>
+                            {booking.sala_nome}
+                          </Text>
+                          <TouchableOpacity 
+                            onPress={() => deleteBooking(booking.id)}
+                            style={{ backgroundColor: '#ff6b6b', padding: 8, borderRadius: 5 }}
+                          >
+                            <Text style={{ color: 'white', fontSize: 16 }}>✕</Text>
+                          </TouchableOpacity>
+                        </View>
+                        
+                        <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                          {/* Coluna da esquerda - Informações principais */}
+                          <View style={{ flex: 1, paddingRight: 12 }}>
+                            <Text style={{ fontSize: 14, color: 'black', marginBottom: 6 }}>
+                              👤 <Text style={{ fontWeight: 'bold' }}>Responsável:</Text> {booking.nome_responsavel}
+                            </Text>
+                            <Text style={{ fontSize: 14, color: 'black', marginBottom: 6 }}>
+                              🏢 <Text style={{ fontWeight: 'bold' }}>Departamento:</Text> {booking.departamento}
+                            </Text>
+                            {booking.descricao && (
+                              <Text style={{ fontSize: 14, color: 'black' }}>
+                                📝 <Text style={{ fontWeight: 'bold' }}>Descrição:</Text> {booking.descricao}
+                              </Text>
+                            )}
+                          </View>
+                          
+                          {/* Coluna da direita - Data e horário */}
+                          <View style={{ alignItems: 'flex-end' }}>
+                            <Text style={{ fontSize: 14, color: 'gray', marginBottom: 6 }}>
+                              📅 {booking.data_reserva.split('T')[0]}
+                            </Text>
+                            <Text style={{ fontSize: 14, color: 'gray' }}>
+                              🕐 {booking.horario_inicio.split('T')[1].substring(0, 5)} - {booking.horario_fim.split('T')[1].substring(0, 5)}
+                            </Text>
+                          </View>
+                        </View>
+                      </View>
+                    ))}
+                  </View>
+                  
+                  <View style={styles.paginationContainer}>
+                    <TouchableOpacity 
+                      onPress={goToPreviousPage}
+                      style={[
+                        styles.paginationButton,
+                        currentPage === 1 && styles.paginationButtonDisabled
+                      ]}
+                      disabled={currentPage === 1}
+                    >
+                      <Text style={[
+                        styles.paginationButtonText,
+                        currentPage === 1 && styles.paginationButtonTextDisabled
+                      ]}>Anterior</Text>
+                    </TouchableOpacity>
+                    <Text style={styles.paginationText}>
+                      Página {currentPage} de {totalPages}
                     </Text>
                     <TouchableOpacity 
-                      onPress={() => deleteBooking(booking.id)}
-                      style={{ backgroundColor: '#ff6b6b', padding: 8, borderRadius: 5 }}
+                      onPress={goToNextPage}
+                      style={[
+                        styles.paginationButton,
+                        currentPage === totalPages && styles.paginationButtonDisabled
+                      ]}
+                      disabled={currentPage === totalPages}
                     >
-                      <Text style={{ color: 'white', fontSize: 16 }}>✕</Text>
+                      <Text style={[
+                        styles.paginationButtonText,
+                        currentPage === totalPages && styles.paginationButtonTextDisabled
+                      ]}>Próximo</Text>
                     </TouchableOpacity>
                   </View>
-                  
-                  <Text style={{ fontSize: 14, color: 'gray', marginTop: 5 }}>
-                    📅 {booking.data_reserva.split('T')[0]}
-                  </Text>
-                  <Text style={{ fontSize: 14, color: 'gray' }}>
-                    🕐 {booking.horario_inicio.split('T')[1].substring(0, 5)} - {booking.horario_fim.split('T')[1].substring(0, 5)}
-                  </Text>
-                  
-                  <View style={{ marginTop: 10, paddingTop: 10, borderTopWidth: 1, borderTopColor: '#eee' }}>
-                    <Text style={{ fontSize: 14, color: 'black', marginBottom: 3 }}>
-                      👤 <Text style={{ fontWeight: 'bold' }}>Responsável:</Text> {booking.nome_responsavel}
-                    </Text>
-                    <Text style={{ fontSize: 14, color: 'black', marginBottom: 3 }}>
-                      🏢 <Text style={{ fontWeight: 'bold' }}>Departamento:</Text> {booking.departamento}
-                    </Text>
-                    {booking.descricao && (
-                      <Text style={{ fontSize: 14, color: 'black' }}>
-                        📝 <Text style={{ fontWeight: 'bold' }}>Descrição:</Text> {booking.descricao}
-                      </Text>
-                    )}
-                  </View>
-                </View>
-              ))}
+                </>
+              )}
             </View>
           </TouchableWithoutFeedback>
         </View>
       </Modal>
+
+
     </SafeAreaView>
   );
 }
@@ -1155,6 +1593,9 @@ const styles = StyleSheet.create({
   roomCardUnavailable: {
     opacity: 0.6,
   },
+  roomCardLoading: {
+    opacity: 0.5,
+  },
   roomInfo: {
     flex: 1,
   },
@@ -1191,9 +1632,6 @@ const styles = StyleSheet.create({
   availableText: {
     color: Colors.success[500],
   },
-  unavailableText: {
-    color: Colors.error[500],
-  },
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
@@ -1206,6 +1644,7 @@ const styles = StyleSheet.create({
     borderBottomRightRadius: 20,
     padding: 20,
     maxHeight: '80%',
+    minHeight: 400,
     marginHorizontal: 16,
     marginVertical: 70,
     shadowColor: '#000',
@@ -1274,6 +1713,16 @@ const styles = StyleSheet.create({
     color: Colors.neutral[900],
     marginLeft: 8,
     flex: 1,
+  },
+  timeSlotInfo: {
+    alignItems: 'flex-end',
+    justifyContent: 'center',
+  },
+  bookingInfoText: {
+    fontFamily: 'Inter-Regular',
+    fontSize: 12,
+    color: Colors.neutral[600],
+    marginTop: 2,
   },
   scheduleButton: {
     backgroundColor: Colors.primary[500],
@@ -1417,7 +1866,7 @@ const styles = StyleSheet.create({
   },
   dateModalButtonText: {
     fontFamily: 'Inter-SemiBold',
-    fontSize: 16,
+    fontSize: 14,
     color: Colors.neutral[700],
   },
   dateModalButtonTextPrimary: {
@@ -1451,11 +1900,6 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     backgroundColor: Colors.primary[50],
   },
-  bookingInfoText: {
-    fontFamily: 'Inter-Regular',
-    fontSize: 14,
-    color: Colors.primary[700],
-  },
   summaryContainer: {
     marginTop: 16,
     padding: 8,
@@ -1486,6 +1930,17 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   slotCountsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: 8,
+  },
+  slotCountsTitle: {
+    fontFamily: 'Inter-Medium',
+    fontSize: 14,
+    color: Colors.neutral[700],
+  },
+  slotCountsRow: {
     flexDirection: 'row',
     gap: 8,
   },
@@ -1571,5 +2026,137 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     backgroundColor: Colors.primary[500],
     alignItems: 'center',
+  },
+  paginationContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 16,
+    paddingHorizontal: 8,
+  },
+  paginationButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+    backgroundColor: Colors.primary[500],
+    alignItems: 'center',
+    minWidth: 80,
+  },
+  paginationButtonDisabled: {
+    backgroundColor: Colors.neutral[300],
+    opacity: 1,
+  },
+  paginationButtonText: {
+    fontFamily: 'Inter-SemiBold',
+    fontSize: 14,
+    color: Colors.white,
+  },
+  paginationButtonTextDisabled: {
+    color: Colors.neutral[500],
+  },
+  paginationText: {
+    fontFamily: 'Inter-Medium',
+    fontSize: 14,
+    color: Colors.neutral[700],
+  },
+  emptyContainer: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 40,
+  },
+  emptyText: {
+    fontFamily: 'Inter-Medium',
+    fontSize: 16,
+    color: Colors.neutral[700],
+  },
+  bookingsContainer: {
+    minHeight: 250,
+    justifyContent: 'flex-start',
+  },
+  departmentSelector: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    minHeight: 48,
+    paddingHorizontal: 12,
+  },
+  departmentSelectorText: {
+    fontFamily: 'Inter-Regular',
+    fontSize: 16,
+    color: Colors.neutral[900],
+    flex: 1,
+  },
+  placeholderText: {
+    color: Colors.neutral[400],
+  },
+  departmentDropdown: {
+    backgroundColor: Colors.white,
+    borderWidth: 1,
+    borderColor: Colors.neutral[200],
+    borderRadius: 8,
+    maxHeight: 200,
+    marginTop: 4,
+    zIndex: 1000,
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+  },
+  departmentDropdownScroll: {
+    maxHeight: 200,
+  },
+  departmentDropdownItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.neutral[100],
+  },
+  departmentDropdownItemSelected: {
+    backgroundColor: Colors.primary[50],
+  },
+  departmentDropdownItemText: {
+    fontFamily: 'Inter-Regular',
+    fontSize: 14,
+    color: Colors.neutral[900],
+    flex: 1,
+  },
+  departmentDropdownItemTextSelected: {
+    fontFamily: 'Inter-Medium',
+    color: Colors.primary[700],
+  },
+  filterButtonsContainer: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 16,
+    marginTop: 8,
+  },
+  filterButton: {
+    flex: 1,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: Colors.neutral[300],
+    backgroundColor: Colors.neutral[50],
+    alignItems: 'center',
+  },
+  filterButtonActive: {
+    backgroundColor: Colors.primary[500],
+    borderColor: Colors.primary[500],
+  },
+  filterButtonText: {
+    fontFamily: 'Inter-Medium',
+    fontSize: 14,
+    color: Colors.neutral[700],
+  },
+  filterButtonTextActive: {
+    color: Colors.white,
   },
 });

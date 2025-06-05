@@ -69,7 +69,7 @@ class ImageCacheManager {
           try {
             await FileSystem.deleteAsync(item.localPath, { idempotent: true });
           } catch (error) {
-            console.warn('Erro ao deletar arquivo de cache:', error);
+            // console.warn('Erro ao deletar arquivo de cache:', error);
           }
         }
       }
@@ -88,7 +88,7 @@ class ImageCacheManager {
           try {
             await FileSystem.deleteAsync(item.localPath, { idempotent: true });
           } catch (error) {
-            console.warn('Erro ao deletar arquivo de cache:', error);
+            // console.warn('Erro ao deletar arquivo de cache:', error);
           }
         }
       }
@@ -155,14 +155,14 @@ class ImageCacheManager {
         // Imagem não encontrada - caso esperado, não loga erro
         return url;
       } else {
-        // Outros erros de status que podem ser inesperados
-        console.warn(`Download da imagem falhou com status: ${downloadResult.status} para URL: ${url}`);
+        // Outros erros de status que podem ser inesperados - silencioso para reduzir logs
+        // console.warn(`Download da imagem falhou com status: ${downloadResult.status} para URL: ${url}`);
         return url;
       }
     } catch (error) {
       // Apenas loga erros realmente inesperados (não relacionados a 404)
       if (error instanceof Error && !error.message.includes('404')) {
-        console.error('Erro inesperado ao fazer cache da imagem:', error);
+        // console.error('Erro inesperado ao fazer cache da imagem:', error);
       }
       // Retorna URL original se o cache falhar
       return url;

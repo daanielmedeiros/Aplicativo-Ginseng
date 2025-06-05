@@ -20,13 +20,19 @@
     ],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.grupoginseng.app"
+      "bundleIdentifier": "com.grupoginseng.app",
+      "icon": {
+        "light": "./assets/images/icon-logo.png",
+        "dark": "./assets/images/icon-logo.png",
+        "tinted": "./assets/images/icon-logo.png"
+      }
     },
     "android": {
       "package": "com.grupoginseng.app",
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/icon-logo.png",
-        "backgroundColor": "#04506B"
+        "backgroundColor": "#04506B",
+        "resizeMode": "contain"
       },
       "intentFilters": [
         {

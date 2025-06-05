@@ -11,12 +11,17 @@ import {
   Modal,
   Pressable,
   FlatList,
-  Dimensions
+  Dimensions,
+  Alert,
+  Platform,
+  TextInput,
+  TouchableWithoutFeedback,
+  Keyboard
 } from 'react-native';
 import { useColorScheme } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { ChartBar as BarChart2, LogOut, Search, TrendingUp, TrendingDown, Package, Archive, Truck, ChevronRight, Store } from 'lucide-react-native';
+import { ChartBar as BarChart2, LogOut, Search, TrendingUp, TrendingDown, Package, Archive, Truck, ChevronRight, Store, User, Bell, MessageSquare } from 'lucide-react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { LineChart } from 'react-native-chart-kit';
 import Colors from '@/constants/Colors';
@@ -28,6 +33,8 @@ import { useCountAnimation } from '@/hooks/useCountAnimation';
 import { router } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from '@/contexts/AuthContext';
+import ProgressBar from '@/components/ProgressBar';
+import ConstellationBackground from '@/components/ConstellationBackground';
 
 interface TopSellingProduct {
   code: string;
@@ -131,6 +138,11 @@ export default function HomeScreen() {
   const [showCycleSelector, setShowCycleSelector] = useState(false);
   const [historicalData, setHistoricalData] = useState<number[]>([]);
   const [loadingHistorical, setLoadingHistorical] = useState(true);
+  const [historicalProgress, setHistoricalProgress] = useState(0);
+  const [showFeedbackModal, setShowFeedbackModal] = useState(false);
+  const [feedbackTitle, setFeedbackTitle] = useState('');
+  const [feedbackDescription, setFeedbackDescription] = useState('');
+  const [sendingFeedback, setSendingFeedback] = useState(false);
 
   const avatars: AvatarKey[] = [1, 2, 3, 4, 5, 6, 7, 8, 9];
 
@@ -153,6 +165,49 @@ export default function HomeScreen() {
     } catch (error) {
       console.error('Erro ao fazer logout:', error);
     }
+  };
+
+  const handleSendFeedback = async () => {
+    if (!feedbackTitle.trim() || !feedbackDescription.trim()) {
+      Alert.alert('Erro', 'Por favor, preencha todos os campos.');
+      return;
+    }
+
+    try {
+      setSendingFeedback(true);
+      
+      const response = await fetch('https://api.grupoginseng.com.br/comments', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          usuario: user?.name || 'Usuário Anônimo',
+          titulo: feedbackTitle.trim(),
+          descricao: feedbackDescription.trim(),
+        }),
+      });
+
+      if (response.ok) {
+        Alert.alert('Sucesso', 'Seu feedback foi enviado com sucesso! Obrigado pela contribuição.');
+        setFeedbackTitle('');
+        setFeedbackDescription('');
+        setShowFeedbackModal(false);
+      } else {
+        throw new Error('Erro ao enviar feedback');
+      }
+    } catch (error) {
+      console.error('Erro ao enviar feedback:', error);
+      Alert.alert('Erro', 'Não foi possível enviar seu feedback. Tente novamente mais tarde.');
+    } finally {
+      setSendingFeedback(false);
+    }
+  };
+
+  const handleCloseFeedbackModal = () => {
+    setFeedbackTitle('');
+    setFeedbackDescription('');
+    setShowFeedbackModal(false);
   };
 
   const fetchBearerToken = async () => {
@@ -371,12 +426,23 @@ export default function HomeScreen() {
   const fetchHistoricalData = async () => {
     try {
       setLoadingHistorical(true);
+      setHistoricalProgress(0); // Resetar progresso
+      
       const cycles = ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12', '13', '14', '15', '16', '17'];
       const results: number[] = [];
+      const totalCycles = cycles.length;
+
+      // Progresso inicial
+      setHistoricalProgress(5);
 
       // Busca dados para cada ciclo
-      for (const cycle of cycles) {
+      for (let i = 0; i < cycles.length; i++) {
+        const cycle = cycles[i];
         try {
+          // Atualizar progresso antes da requisição
+          const progressBefore = 5 + (i / totalCycles) * 85; // 5% inicial + 85% para requests
+          setHistoricalProgress(progressBefore);
+
           const response = await fetch(`https://backend-dashboards.prd.franqueado.grupoboticario.digital/disruption-by-period?years=2025&pillars=Todos&startCurrentCycle=2025${cycle}&endCurrentCycle=2025${cycle}&startPreviousCycle=202407&endPreviousCycle=202407&startCurrentDate=2025-05-12&endCurrentDate=2025-05-25&startPreviousDate=2024-05-13&endPreviousDate=2024-05-26&calendarType=cycle&previousPeriodCycleType=retail-year&previousPeriodCalendarType=retail-year&hour=00:00+-+23:00&separationType=businessDays`, {
             headers: {
               'accept': 'application/json, text/plain, */*',
@@ -398,17 +464,35 @@ export default function HomeScreen() {
           const franchisePercentage = parseFloat(data.data?.franchiseDisruptionPercentage?.replace(',', '.') || '0');
           results.push(franchisePercentage);
           
+          // Atualizar progresso após receber dados
+          const progressAfter = 5 + ((i + 1) / totalCycles) * 85;
+          setHistoricalProgress(progressAfter);
+          
           // Pequeno delay para não sobrecarregar a API
           await new Promise(resolve => setTimeout(resolve, 100));
         } catch (error) {
           console.warn(`Erro ao buscar dados do ciclo ${cycle}:`, error);
           results.push(0); // Fallback para 0 se der erro
+          
+          // Ainda atualizar progresso mesmo com erro
+          const progressAfter = 5 + ((i + 1) / totalCycles) * 85;
+          setHistoricalProgress(progressAfter);
         }
       }
 
+      // Processamento final
+      setHistoricalProgress(95);
       setHistoricalData(results);
+      
+      // Finalizar
+      setHistoricalProgress(100);
+      
+      // Pequeno delay antes de esconder o loading
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
     } catch (error) {
       console.error('Erro ao buscar dados históricos:', error);
+      setHistoricalProgress(100); // Completar mesmo com erro
     } finally {
       setLoadingHistorical(false);
     }
@@ -486,6 +570,12 @@ export default function HomeScreen() {
           </View>
         </View>
         <View style={styles.headerRight}>
+          <TouchableOpacity 
+            style={styles.iconButton} 
+            onPress={() => setShowFeedbackModal(true)}
+          >
+            <MessageSquare size={22} color={Colors.white} />
+          </TouchableOpacity>
           <TouchableOpacity style={styles.iconButton} onPress={handleLogout}>
             <LogOut size={22} color={Colors.white} />
           </TouchableOpacity>
@@ -597,87 +687,213 @@ export default function HomeScreen() {
         </Pressable>
       </Modal>
 
+      {/* Modal de Feedback */}
+      <Modal
+        visible={showFeedbackModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={handleCloseFeedbackModal}
+      >
+        <Pressable 
+          style={styles.modalOverlay}
+          onPress={handleCloseFeedbackModal}
+        >
+          <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+            <View style={styles.feedbackModalContent}>
+              <View style={styles.feedbackModalHeader}>
+                <Text style={styles.feedbackModalTitle}>Enviar Feedback</Text>
+                <TouchableOpacity 
+                  onPress={handleCloseFeedbackModal}
+                  style={styles.closeButton}
+                >
+                  <Text style={styles.closeButtonText}>✕</Text>
+                </TouchableOpacity>
+              </View>
+              
+              <View style={styles.feedbackForm}>
+                <View style={styles.inputContainer}>
+                  <Text style={styles.inputLabel}>Título *</Text>
+                  <TextInput
+                    style={styles.textInput}
+                    value={feedbackTitle}
+                    onChangeText={setFeedbackTitle}
+                    placeholder="Digite o título do seu feedback"
+                    placeholderTextColor={Colors.neutral[400]}
+                    maxLength={100}
+                  />
+                </View>
+
+                <View style={styles.inputContainer}>
+                  <Text style={styles.inputLabel}>Descrição *</Text>
+                  <TextInput
+                    style={[styles.textInput, styles.textArea]}
+                    value={feedbackDescription}
+                    onChangeText={setFeedbackDescription}
+                    placeholder="Descreva seu feedback, sugestão ou reclamação..."
+                    placeholderTextColor={Colors.neutral[400]}
+                    multiline
+                    numberOfLines={4}
+                    textAlignVertical="top"
+                    maxLength={500}
+                  />
+                  <Text style={styles.characterCount}>
+                    {feedbackDescription.length}/500
+                  </Text>
+                </View>
+
+                <View style={styles.buttonContainer}>
+                  <TouchableOpacity 
+                    style={styles.cancelButton}
+                    onPress={handleCloseFeedbackModal}
+                    disabled={sendingFeedback}
+                  >
+                    <Text style={styles.cancelButtonText}>Cancelar</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity 
+                    style={[
+                      styles.sendButton,
+                      (!feedbackTitle.trim() || !feedbackDescription.trim() || sendingFeedback) && styles.sendButtonDisabled
+                    ]}
+                    onPress={handleSendFeedback}
+                    disabled={!feedbackTitle.trim() || !feedbackDescription.trim() || sendingFeedback}
+                  >
+                    {sendingFeedback ? (
+                      <ActivityIndicator size="small" color={Colors.white} />
+                    ) : (
+                      <Text style={styles.sendButtonText}>Enviar</Text>
+                    )}
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </View>
+          </TouchableWithoutFeedback>
+        </Pressable>
+      </Modal>
+
       <ScrollView 
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
+        {/* Mais vendidos - Primeiro */}
         <Animated.View entering={FadeInDown.duration(400).delay(100)}>
-          <Text style={styles.sectionTitle}>Resumo Ruptura</Text>
-          <View style={styles.cardsContainer}>
-            <View style={[styles.ruptureContainer, { backgroundColor: Colors.neutral[50] }]}>
-              <View style={styles.ruptureHeader}>
-                <Text style={styles.ruptureTitle}>% Ruptura Causa Franqueado (IAF)</Text>
-                <View style={[styles.rupturePeriod, { backgroundColor: Colors.neutral[100] }]}>
-                  <Text style={[styles.rupturePeriodText, { color: Colors.neutral[700] }]}>Período 2025</Text>
-                </View>
-              </View>
-              <View style={styles.ruptureValues}>
-                {loadingRupture ? (
-                  <Text style={styles.ruptureValue}>Carregando...</Text>
-                ) : (
-                  <>
-                    <View style={styles.ruptureValueRow}>
-                      <Text style={styles.ruptureValueLabel}>Ruptura Total:</Text>
-                      <AnimatedPercentage value={ruptureData?.totalDisruptionPercentage} delay={0} />
-                    </View>
-                    <View style={[styles.ruptureValueRow, styles.highlightedRow]}>
-                      <Text style={[styles.ruptureValueLabel, styles.highlightedText]}>Causa Franqueado:</Text>
-                      <AnimatedPercentage value={ruptureData?.franchiseDisruptionPercentage} delay={200} />
-                    </View>
-                    <View style={styles.ruptureValueRow}>
-                      <Text style={styles.ruptureValueLabel}>Causa Industria:</Text>
-                      <AnimatedPercentage value={ruptureData?.industryDisruptionPercentage} delay={400} />
-                    </View>
-                  </>
-                )}
-              </View>
+          <View style={styles.topSellingHeader}>
+            <Text style={styles.sectionTitle}>Mais vendidos</Text>
+            <View style={styles.slideButton}>
+              <Text style={styles.slideButtonText}>Deslize para ver mais</Text>
+              <ChevronRight size={16} color={Colors.neutral[500]} />
             </View>
-
-            <View style={[styles.ruptureContainer, { backgroundColor: Colors.neutral[50] }]}>
-              <View style={styles.ruptureHeader}>
-                <Text style={styles.ruptureTitle}>% Ruptura Causa Franqueado (IAF)</Text>
+          </View>
+          {loading ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color={Colors.primary[500]} />
+            </View>
+          ) : (
+            <ScrollView 
+              horizontal 
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.topSellingContainer}
+            >
+              {topSellingProducts.map((product, index) => (
                 <TouchableOpacity 
-                  style={[styles.rupturePeriod, { backgroundColor: Colors.neutral[100] }]}
-                  onPress={() => setShowCycleSelector(true)}
+                  key={product.code}
+                  style={styles.topSellingItem}
+                  onPress={() => router.push({
+                    pathname: '/(tabs)/inventory',
+                    params: { selectedProduct: product.code }
+                  })}
                 >
-                  <Text style={[styles.rupturePeriodText, { color: Colors.neutral[700] }]}>
-                    Ciclo {selectedCycle} ▼
-                  </Text>
+                  <CachedImage 
+                    uri={product.image}
+                    style={styles.topSellingImage}
+                  />
+                  <View style={styles.productInfo}>
+                    <Text style={styles.productCode}>{product.code}</Text>
+                    <Text style={styles.productDescription} numberOfLines={2}>
+                      {product.description}
+                    </Text>
+                    <Text style={styles.totalSales}>
+                      {product.totalSales} vendas
+                    </Text>
+                  </View>
                 </TouchableOpacity>
+              ))}
+            </ScrollView>
+          )}
+        </Animated.View>
+
+        {/* Últimos Comunicados - Segundo */}
+        <Animated.View entering={FadeInDown.duration(400).delay(200)}>
+          <Text style={styles.sectionTitle}>Últimos Comunicados</Text>
+          <View style={styles.activitiesContainer}>
+            {loadingToken || loadingCommunications ? (
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator size="large" color={Colors.primary[500]} />
               </View>
-              <View style={styles.ruptureValues}>
-                {loadingCurrentCycle ? (
-                  <Text style={styles.ruptureValue}>Carregando...</Text>
-                ) : (
-                  <>
-                    <View style={styles.ruptureValueRow}>
-                      <Text style={styles.ruptureValueLabel}>Ruptura Total:</Text>
-                      <AnimatedPercentage value={currentCycleData?.totalDisruptionPercentage} delay={600} />
-                    </View>
-                    <View style={[styles.ruptureValueRow, styles.highlightedRow]}>
-                      <Text style={[styles.ruptureValueLabel, styles.highlightedText]}>Causa Franqueado:</Text>
-                      <AnimatedPercentage value={currentCycleData?.franchiseDisruptionPercentage} delay={800} />
-                    </View>
-                    <View style={styles.ruptureValueRow}>
-                      <Text style={styles.ruptureValueLabel}>Causa Industria:</Text>
-                      <AnimatedPercentage value={currentCycleData?.industryDisruptionPercentage} delay={1000} />
-                    </View>
-                  </>
-                )}
-              </View>
-            </View>
+            ) : (
+              storePerformance.map((item, index) => (
+                <TouchableOpacity 
+                  key={index} 
+                  style={styles.activityCard}
+                  onPress={() => handleOpenCommunication(item.id)}
+                >
+                  <View style={[styles.activityIconContainer, { backgroundColor: Colors.warning[50] }]}>
+                    <Bell size={20} color={Colors.warning[500]} />
+                  </View>
+                  <View style={styles.activityInfo}>
+                    <Text style={styles.activityTitle} numberOfLines={2}>
+                      {item.title}
+                    </Text>
+                    <Text style={styles.activityDescription}>
+                      Publicado em {item.value}
+                    </Text>
+                  </View>
+                  <ChevronRight size={20} color={Colors.neutral[400]} />
+                </TouchableOpacity>
+              ))
+            )}
           </View>
         </Animated.View>
 
-        {/* Gráfico Histórico */}
-        <Animated.View entering={FadeInDown.duration(400).delay(250)}>
+        {/* Atividades recentes - Terceiro */}
+        <Animated.View entering={FadeInDown.duration(400).delay(300)}>
+          <Text style={styles.sectionTitle}>Atividades recentes</Text>
+          <View style={styles.activitiesContainer}>
+            <TouchableOpacity style={styles.activityCard}>
+              <View style={[styles.activityIconContainer, { backgroundColor: Colors.primary[50] }]}>
+                <Package size={20} color={Colors.primary[500]} />
+              </View>
+              <View style={styles.activityInfo}>
+                <Text style={styles.activityTitle}>Transferência Incluída PDV 20998</Text>
+                <Text style={styles.activityDescription}>84 produtos adicionados</Text>
+              </View>
+              <Text style={styles.activityTime}>13:45</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity style={styles.activityCard}>
+              <View style={[styles.activityIconContainer, { backgroundColor: Colors.info[50] }]}>
+                <Archive size={20} color={Colors.info[500]} />
+              </View>
+              <View style={styles.activityInfo}>
+                <Text style={styles.activityTitle}>Nota Faturada PDV 20998</Text>
+                <Text style={styles.activityDescription}>Previsão de entrega 22/05/2025</Text>
+              </View>
+              <Text style={styles.activityTime}>09:30</Text>
+            </TouchableOpacity>
+          </View>
+        </Animated.View>
+
+        {/* Gráfico Histórico - Quarto */}
+        <Animated.View entering={FadeInDown.duration(400).delay(400)}>
           <Text style={styles.sectionTitle}>Histórico Ruptura - Causa Franqueado</Text>
           <View style={styles.chartContainer}>
             {loadingHistorical ? (
               <View style={styles.chartLoadingContainer}>
-                <ActivityIndicator size="large" color={Colors.primary[500]} />
-                <Text style={styles.chartLoadingText}>Carregando histórico...</Text>
+                <ProgressBar 
+                  progress={historicalProgress}
+                  loadingText="Carregando Histórico de Ruptura..."
+                />
               </View>
             ) : (() => {
               // Filtrar apenas dados válidos (> 0.1%)
@@ -747,110 +963,73 @@ export default function HomeScreen() {
           </View>
         </Animated.View>
 
-        <Animated.View entering={FadeInDown.duration(400).delay(200)}>
-          <Text style={styles.sectionTitle}>Atividades recentes</Text>
-          <View style={styles.activitiesContainer}>
-            <TouchableOpacity style={styles.activityCard}>
-              <View style={[styles.activityIconContainer, { backgroundColor: Colors.primary[50] }]}>
-                <Package size={20} color={Colors.primary[500]} />
+        {/* Resumo Ruptura - Quinto */}
+        <Animated.View entering={FadeInDown.duration(400).delay(500)}>
+          <Text style={styles.sectionTitle}>Resumo Ruptura</Text>
+          <View style={styles.cardsContainer}>
+            <View style={[styles.ruptureContainer, { backgroundColor: Colors.neutral[50] }]}>
+              <View style={styles.ruptureHeader}>
+                <Text style={styles.ruptureTitle}>% Ruptura Causa Franqueado (IAF)</Text>
+                <View style={[styles.rupturePeriod, { backgroundColor: Colors.neutral[100] }]}>
+                  <Text style={[styles.rupturePeriodText, { color: Colors.neutral[700] }]}>Período 2025</Text>
+                </View>
               </View>
-              <View style={styles.activityInfo}>
-                <Text style={styles.activityTitle}>Transferência Incluída PDV 20998</Text>
-                <Text style={styles.activityDescription}>84 produtos adicionados</Text>
+              <View style={styles.ruptureValues}>
+                {loadingRupture ? (
+                  <Text style={styles.ruptureValue}>Carregando...</Text>
+                ) : (
+                  <>
+                    <View style={styles.ruptureValueRow}>
+                      <Text style={styles.ruptureValueLabel}>Ruptura Total:</Text>
+                      <AnimatedPercentage value={ruptureData?.totalDisruptionPercentage} delay={0} />
+                    </View>
+                    <View style={[styles.ruptureValueRow, styles.highlightedRow]}>
+                      <Text style={[styles.ruptureValueLabel, styles.highlightedText]}>Causa Franqueado:</Text>
+                      <AnimatedPercentage value={ruptureData?.franchiseDisruptionPercentage} delay={200} />
+                    </View>
+                    <View style={styles.ruptureValueRow}>
+                      <Text style={styles.ruptureValueLabel}>Causa Industria:</Text>
+                      <AnimatedPercentage value={ruptureData?.industryDisruptionPercentage} delay={400} />
+                    </View>
+                  </>
+                )}
               </View>
-              <Text style={styles.activityTime}>13:45</Text>
-            </TouchableOpacity>
-            
+            </View>
 
-            
-            <TouchableOpacity style={styles.activityCard}>
-              <View style={[styles.activityIconContainer, { backgroundColor: Colors.info[50] }]}>
-                <Archive size={20} color={Colors.info[500]} />
-              </View>
-              <View style={styles.activityInfo}>
-                <Text style={styles.activityTitle}>Nota Faturada PDV 20998</Text>
-                <Text style={styles.activityDescription}>Previsão de entrega 22/05/2025</Text>
-              </View>
-              <Text style={styles.activityTime}>09:30</Text>
-            </TouchableOpacity>
-          </View>
-        </Animated.View>
-
-        <Animated.View entering={FadeInDown.duration(400).delay(300)}>
-          <View style={styles.topSellingHeader}>
-            <Text style={styles.sectionTitle}>Mais vendidos</Text>
-            <View style={styles.slideButton}>
-              <Text style={styles.slideButtonText}>Deslize para ver mais</Text>
-              <ChevronRight size={16} color={Colors.neutral[500]} />
-            </View>
-          </View>
-          {loading ? (
-            <View style={styles.loadingContainer}>
-              <ActivityIndicator size="large" color={Colors.primary[500]} />
-            </View>
-          ) : (
-            <ScrollView 
-              horizontal 
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.topSellingContainer}
-            >
-              {topSellingProducts.map((product, index) => (
+            <View style={[styles.ruptureContainer, { backgroundColor: Colors.neutral[50] }]}>
+              <View style={styles.ruptureHeader}>
+                <Text style={styles.ruptureTitle}>% Ruptura Causa Franqueado (IAF)</Text>
                 <TouchableOpacity 
-                  key={product.code}
-                  style={styles.topSellingItem}
-                  onPress={() => router.push({
-                    pathname: '/(tabs)/inventory',
-                    params: { selectedProduct: product.code }
-                  })}
+                  style={[styles.rupturePeriod, { backgroundColor: Colors.neutral[100] }]}
+                  onPress={() => setShowCycleSelector(true)}
                 >
-                  <CachedImage 
-                    uri={product.image}
-                    style={styles.topSellingImage}
-                  />
-                  <View style={styles.productInfo}>
-                    <Text style={styles.productCode}>{product.code}</Text>
-                    <Text style={styles.productDescription} numberOfLines={2}>
-                      {product.description}
-                    </Text>
-                    <Text style={styles.totalSales}>
-                      {product.totalSales} vendas
-                    </Text>
-                  </View>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-          )}
-        </Animated.View>
-        
-        <Animated.View entering={FadeInDown.duration(400).delay(400)} style={styles.statsContainer}>
-          <View style={styles.statsHeader}>
-            <Text style={styles.sectionTitle}>Útimos Comunicados</Text>
-          </View>
-          {loadingToken || loadingCommunications ? (
-            <View style={styles.loadingContainer}>
-              <ActivityIndicator size="large" color={Colors.primary[500]} />
-            </View>
-          ) : (
-            <View style={styles.communicationsList}>
-              {storePerformance.map((item, index) => (
-                <TouchableOpacity 
-                  key={index} 
-                  style={styles.communicationItem}
-                  onPress={() => handleOpenCommunication(item.id)}
-                >
-                  <View style={styles.communicationHeader}>
-                    <Text style={styles.communicationTitle} numberOfLines={2}>
-                      {item.title}
-                    </Text>
-                    <ChevronRight size={20} color={Colors.neutral[400]} />
-                  </View>
-                  <Text style={styles.communicationDate}>
-                    {item.value}
+                  <Text style={[styles.rupturePeriodText, { color: Colors.neutral[700] }]}>
+                    Ciclo {selectedCycle} ▼
                   </Text>
                 </TouchableOpacity>
-              ))}
+              </View>
+              <View style={styles.ruptureValues}>
+                {loadingCurrentCycle ? (
+                  <Text style={styles.ruptureValue}>Carregando...</Text>
+                ) : (
+                  <>
+                    <View style={styles.ruptureValueRow}>
+                      <Text style={styles.ruptureValueLabel}>Ruptura Total:</Text>
+                      <AnimatedPercentage value={currentCycleData?.totalDisruptionPercentage} delay={600} />
+                    </View>
+                    <View style={[styles.ruptureValueRow, styles.highlightedRow]}>
+                      <Text style={[styles.ruptureValueLabel, styles.highlightedText]}>Causa Franqueado:</Text>
+                      <AnimatedPercentage value={currentCycleData?.franchiseDisruptionPercentage} delay={800} />
+                    </View>
+                    <View style={styles.ruptureValueRow}>
+                      <Text style={styles.ruptureValueLabel}>Causa Industria:</Text>
+                      <AnimatedPercentage value={currentCycleData?.industryDisruptionPercentage} delay={1000} />
+                    </View>
+                  </>
+                )}
+              </View>
             </View>
-          )}
+          </View>
         </Animated.View>
       </ScrollView>
     </SafeAreaView>
@@ -995,19 +1174,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: Colors.neutral[500],
   },
-  statsContainer: {
-    backgroundColor: Colors.neutral[50],
-    borderRadius: 12,
-    padding: 16,
-    marginTop: 24,
-    marginBottom: 24,
-  },
-  statsHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
+
   loadingContainer: {
     height: 200,
     justifyContent: 'center',
@@ -1060,34 +1227,7 @@ const styles = StyleSheet.create({
     marginTop: 4,
     textAlign: 'center',
   },
-  communicationsList: {
-    gap: 12,
-  },
-  communicationItem: {
-    backgroundColor: Colors.white,
-    borderRadius: 12,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: Colors.neutral[200],
-  },
-  communicationHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    gap: 8,
-  },
-  communicationTitle: {
-    flex: 1,
-    fontFamily: 'Inter-Medium',
-    fontSize: 16,
-    color: Colors.neutral[900],
-    marginBottom: 8,
-  },
-  communicationDate: {
-    fontFamily: 'Inter-Regular',
-    fontSize: 14,
-    color: Colors.neutral[500],
-  },
+
   ruptureContainer: {
     borderRadius: 12,
     padding: 16,
@@ -1257,9 +1397,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   chartLoadingContainer: {
-    height: 160,
+    minHeight: 180,
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: Colors.neutral[50],
+    borderRadius: 8,
+    marginVertical: 8,
   },
   chartLoadingText: {
     fontFamily: 'Inter-Medium',
@@ -1278,5 +1421,95 @@ const styles = StyleSheet.create({
   disabledCycleText: {
     color: Colors.neutral[400],
     fontFamily: 'Inter-Regular',
+  },
+  feedbackModalContent: {
+    backgroundColor: Colors.white,
+    borderRadius: 16,
+    width: '90%',
+    maxWidth: 500,
+    padding: 20,
+    maxHeight: '80%',
+    marginBottom: 250,
+  },
+  feedbackModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  feedbackModalTitle: {
+    fontFamily: 'Inter-SemiBold',
+    fontSize: 20,
+    color: Colors.neutral[900],
+  },
+  feedbackForm: {
+    gap: 16,
+  },
+  inputContainer: {
+    gap: 8,
+  },
+  inputLabel: {
+    fontFamily: 'Inter-Medium',
+    fontSize: 16,
+    color: Colors.neutral[900],
+  },
+  textInput: {
+    borderWidth: 1,
+    borderColor: Colors.neutral[300],
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    fontSize: 16,
+    fontFamily: 'Inter-Regular',
+    color: Colors.neutral[900],
+    backgroundColor: Colors.white,
+  },
+  textArea: {
+    minHeight: 100,
+    maxHeight: 150,
+  },
+  characterCount: {
+    fontSize: 12,
+    color: Colors.neutral[500],
+    textAlign: 'right',
+    fontFamily: 'Inter-Regular',
+  },
+  buttonContainer: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 8,
+  },
+  cancelButton: {
+    flex: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: Colors.neutral[300],
+    backgroundColor: Colors.white,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cancelButtonText: {
+    fontFamily: 'Inter-Medium',
+    fontSize: 16,
+    color: Colors.neutral[700],
+  },
+  sendButton: {
+    flex: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    backgroundColor: Colors.primary[500],
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sendButtonDisabled: {
+    backgroundColor: Colors.neutral[300],
+  },
+  sendButtonText: {
+    fontFamily: 'Inter-SemiBold',
+    fontSize: 16,
+    color: Colors.white,
   },
 });

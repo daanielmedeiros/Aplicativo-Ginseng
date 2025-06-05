@@ -10,58 +10,41 @@ export const getRedirectUri = () => {
 export const getCurrentRedirectUri = () => {
   // Esta é a mesma lógica usada no AuthContext
   if (Platform.OS === 'web') {
-    return 'https://app.danielmedeiros.fun/';
-  } else if (Platform.OS === 'android') {
-    return AuthSession.makeRedirectUri({
-      preferLocalhost: false,
-      isTripleSlashed: true,
-    });
+    return 'http://localhost:8081/';
   } else {
-    return AuthSession.makeRedirectUri({
-      preferLocalhost: true,
-      isTripleSlashed: true,
-    });
+    // Para mobile, sempre usar o scheme customizado
+    return 'com.grupoginseng.app://auth';
   }
 };
 
 export const logAuthConfig = () => {
   const currentUri = getCurrentRedirectUri();
-  const alternativeUris = [
-    AuthSession.makeRedirectUri({ preferLocalhost: false }),
-    AuthSession.makeRedirectUri({ preferLocalhost: true }),
-    'com.grupoginseng.app://auth',
-    'exp://localhost:8081',
-    'exp://127.0.0.1:8081'
-  ];
   
   console.log('=====================================');
-  console.log('🔧 CONFIGURAÇÃO AZURE AD - ERRO RESOLVIDO');
+  console.log('🔧 URI CUSTOMIZADO - GINSENG APP');
   console.log('=====================================');
   console.log('Platform:', Platform.OS);
-  console.log('🎯 URI ATUAL (que está dando erro):', currentUri);
+  console.log('🎯 URI FIXO para Azure:', currentUri);
   console.log('=====================================');
   console.log('');
-  console.log('🚨 COPIE ESTE URI EXATO PARA O AZURE:');
+  console.log('🚨 ADICIONE ESTE URI EXATO NO AZURE:');
   console.log(currentUri);
   console.log('');
-  console.log('📋 URIs ADICIONAIS RECOMENDADOS:');
-  alternativeUris.forEach((uri, index) => {
-    console.log(`${index + 1}. ${uri}`);
-  });
-  console.log('');
-  console.log('🎯 PASSOS PARA RESOLVER:');
-  console.log('1. Vá para: https://portal.azure.com');
-  console.log('2. Azure Active Directory > Registros de aplicativo');
-  console.log('3. Encontre o app ID: 91258904-3a5c-483e-ac12-d8e13d78b460');
+  console.log('🎯 COMO ADICIONAR NO AZURE AD:');
+  console.log('1. Portal: https://portal.azure.com');
+  console.log('2. Azure AD > Registros de aplicativo');
+  console.log('3. App ID: 98e59cc1-5c5a-4b9a-9c3e...');
   console.log('4. Clique em "Autenticação"');
-  console.log('5. Adicione como "Cliente público/nativo (móvel e desktop)":');
-  console.log(`   ${currentUri}`);
-  console.log('6. Salve e teste novamente');
+  console.log('5. Em "URIs de redirecionamento":');
+  console.log('   - Tipo: "Cliente público/nativo (móvel e desktop)"');
+  console.log('   - URI: com.grupoginseng.app://auth');
+  console.log('6. IMPORTANTE: NÃO escolha "Web" ou "SPA"');
+  console.log('7. Salve as alterações');
   console.log('=====================================');
   
   return {
     current: currentUri,
-    alternatives: alternativeUris,
-    appId: '91258904-3a5c-483e-ac12-d8e13d78b460'
+    type: 'Cliente público/nativo (móvel e desktop)',
+    appId: '98e59cc1-5c5a-4b9a-9c3e-f4f6be935097'
   };
 }; 

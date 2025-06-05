@@ -57,23 +57,24 @@ export default function LoginScreen() {
   const showDebugInfo = () => {
     const config = logAuthConfig();
     Alert.alert(
-      '🚨 Erro Azure AD - SOLUÇÃO',
-      `URI que está faltando no Azure:\n\n` +
+      '🔧 URI Customizado - Azure AD',
+      `URI que deve estar no Azure:\n\n` +
       `${config.current}\n\n` +
-      `PASSOS PARA RESOLVER:\n` +
-      `1. Vá para portal.azure.com\n` +
+      `COMO ADICIONAR NO AZURE:\n` +
+      `1. Portal.azure.com\n` +
       `2. Azure AD > Registros de aplicativo\n` +
-      `3. App ID: ${config.appId.substring(0, 8)}...\n` +
-      `4. Autenticação > Adicionar URI\n` +
-      `5. Tipo: Cliente público/nativo\n` +
-      `6. Cole o URI acima\n` +
-      `7. Salve e teste novamente`,
+      `3. Seu app > Autenticação\n` +
+      `4. Tipo: "${config.type}"\n` +
+      `5. URI: ${config.current}\n\n` +
+      `⚠️ NÃO use tipo "Web" ou "SPA"!\n` +
+      `Deve ser tipo "Cliente público/nativo"`,
       [
         {
-          text: 'Copiar URI',
+          text: 'Ver Console',
           onPress: () => {
-            // Em um app real, usaria Clipboard.setString
-            console.log('URI para copiar:', config.current);
+            console.log('=== INSTRUÇÕES DETALHADAS ===');
+            console.log('URI para Azure:', config.current);
+            console.log('Tipo correto:', config.type);
           }
         },
         { text: 'OK' }
@@ -96,14 +97,16 @@ export default function LoginScreen() {
             style={styles.logo}
           />
           
-          {/* Botão de Debug - Remover em produção */}
-          <TouchableOpacity
-            style={styles.debugButton}
-            onPress={showDebugInfo}
-          >
-            <Settings size={16} color={Colors.neutral[400]} />
-            <Text style={styles.debugButtonText}>Debug Azure</Text>
-          </TouchableOpacity>
+          {/* Botão de Debug - Oculto */}
+          {false && (
+            <TouchableOpacity
+              style={styles.debugButton}
+              onPress={showDebugInfo}
+            >
+              <Settings size={16} color={Colors.neutral[400]} />
+              <Text style={styles.debugButtonText}>Debug Azure</Text>
+            </TouchableOpacity>
+          )}
         </Animated.View>
 
         <Animated.View entering={FadeIn.duration(600).delay(300)} style={styles.formContainer}>

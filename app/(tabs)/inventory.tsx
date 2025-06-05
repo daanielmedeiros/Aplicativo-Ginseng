@@ -22,24 +22,24 @@ import { CachedImage } from '@/components/CachedImage';
 
 const categories = [
   { id: 'all', name: 'Todos' },
-  { id: '10040', name: 'CUIDADOS COM A PELE' },
-  { id: '10090', name: 'HOME CARE' },
-  { id: '10060', name: 'DESODORANTES' },
-  { id: '10110', name: 'MAQUIAGEM' },
-  { id: '10080', name: 'GIFTS' },
-  { id: '10120', name: 'OLEOS' },
-  { id: '10050', name: 'CUIDADOS FACIAIS' },
-  { id: '10170', name: 'UNHAS' },
-  { id: '10150', name: 'SOLAR' },
-  { id: '10190', name: 'CUIDADOS PETS' },
-  { id: '10160', name: 'SUPORTE A VENDA' },
-  { id: '10030', name: 'CUIDADOS COM A BARBA' },
-  { id: '10130', name: 'PERFUMARIA' },
-  { id: '10100', name: 'INFANTIL' },
-  { id: '10020', name: 'CABELOS' },
-  { id: '10070', name: 'EMBALAGENS' },
-  { id: '10140', name: 'SABONETE CORPO' },
-  { id: '10010', name: 'ACESSORIOS' }
+  { id: 'CUIDADOS COM A PELE', name: 'CUIDADOS COM A PELE' },
+  { id: 'HOME CARE', name: 'HOME CARE' },
+  { id: 'DESODORANTES', name: 'DESODORANTES' },
+  { id: 'MAQUIAGEM', name: 'MAQUIAGEM' },
+  { id: 'GIFTS', name: 'GIFTS' },
+  { id: 'OLEOS', name: 'ÓLEOS' },
+  { id: 'CUIDADOS FACIAIS', name: 'CUIDADOS FACIAIS' },
+  { id: 'UNHAS', name: 'UNHAS' },
+  { id: 'SOLAR', name: 'SOLAR' },
+  { id: 'CUIDADOS PETS', name: 'CUIDADOS PETS' },
+  { id: 'SUPORTE A VENDA', name: 'SUPORTE A VENDA' },
+  { id: 'CUIDADOS COM A BARBA', name: 'CUIDADOS COM A BARBA' },
+  { id: 'PERFUMARIA', name: 'PERFUMARIA' },
+  { id: 'INFANTIL', name: 'INFANTIL' },
+  { id: 'CABELOS', name: 'CABELOS' },
+  { id: 'EMBALAGENS', name: 'EMBALAGENS' },
+  { id: 'SABONETE CORPO', name: 'SABONETE CORPO' },
+  { id: 'ACESSORIOS', name: 'ACESSÓRIOS' }
 ].sort((a, b) => {
   // Mantém 'Todos' sempre no início
   if (a.id === 'all') return -1;
@@ -91,26 +91,7 @@ interface InventoryResponse {
   total_paginas: number;
 }
 
-const categoryMapping: { [key: string]: string } = {
-  "10040": "CUIDADOS COM A PELE",
-  "10090": "HOME CARE",
-  "10060": "DESODORANTES",
-  "10110": "MAQUIAGEM",
-  "10080": "GIFTS",
-  "10120": "OLEOS",
-  "10050": "CUIDADOS FACIAIS",
-  "10170": "UNHAS",
-  "10150": "SOLAR",
-  "10190": "CUIDADOS PETS",
-  "10160": "SUPORTE A VENDA",
-  "10030": "CUIDADOS COM A BARBA",
-  "10130": "PERFUMARIA",
-  "10100": "INFANTIL",
-  "10020": "CABELOS",
-  "10070": "EMBALAGENS",
-  "10140": "SABONETE CORPO",
-  "10010": "ACESSORIOS"
-};
+
 
 const lojasMap: { [key: string]: string } = {
   "12522": "MACEIO SHOP EXPANSAO",
@@ -236,7 +217,7 @@ export default function InventoryScreen() {
           id: `${item.code}_${item.loja_id}`, // Garante ID único combinando código e loja
           name: item.description || '',
           image: `https://sgi.e-boticario.com.br/Paginas/Imagens/Produtos/${item.code}g.jpg`,
-          category: categoryMapping[item.codcategory] || 'OUTROS',
+          category: item.codcategory || 'OUTROS',
           codCategory: item.codcategory || '',
           price: `R$ ${Number(item.pricesellin || 0).toFixed(2)}`,
           quantity: Number(item.stock_actual || 0),
@@ -313,7 +294,7 @@ export default function InventoryScreen() {
       const matchesSearch = 
         item.name.toLowerCase().includes(searchTerm) || 
         item.code.toLowerCase().includes(searchTerm);
-      const matchesCategory = selectedCategory === 'all' || item.codCategory === selectedCategory;
+      const matchesCategory = selectedCategory === 'all' || item.category === selectedCategory;
       const matchesBrand = selectedBrand === 'Todas as Marcas' || item.brandGroupCode === selectedBrand;
       const matchesCritical = selectedCritical === 'Todos os Itens' || 
         (selectedCritical === 'Itens Críticos' && item.critico) ||
@@ -404,7 +385,8 @@ export default function InventoryScreen() {
                 <Search size={20} color={Colors.neutral[500]} style={styles.searchIcon} />
                 <TextInput
                   style={styles.storeSearchInput}
-                  placeholder="Buscar PDV..."
+                  placeholder="Digite aqui código ou descrição"
+                  placeholderTextColor={Colors.neutral[400]}
                   value={storeSearchQuery}
                   onChangeText={setStoreSearchQuery}
                 />
@@ -449,7 +431,8 @@ export default function InventoryScreen() {
         <Search size={20} color={Colors.neutral[500]} style={styles.searchIcon} />
         <TextInput
           style={styles.searchInput}
-          placeholder="Buscar produtos..."
+          placeholder="Digite aqui código ou descrição"
+          placeholderTextColor={Colors.neutral[400]}
           value={searchQuery}
           onChangeText={setSearchQuery}
         />
