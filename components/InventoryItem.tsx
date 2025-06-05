@@ -187,13 +187,13 @@ const styles = StyleSheet.create({
   },
   productName: {
     fontFamily: 'Inter-Medium',
-    fontSize: 14,
+    fontSize: 10,
     color: Colors.neutral[900],
     marginBottom: 4,
   },
   categoryText: {
     fontFamily: 'Inter-Regular',
-    fontSize: 12,
+    fontSize: 9,
     color: Colors.neutral[600],
     marginBottom: 4,
   },
@@ -204,7 +204,7 @@ const styles = StyleSheet.create({
   },
   priceText: {
     fontFamily: 'Inter-SemiBold',
-    fontSize: 14,
+    fontSize: 10,
     color: Colors.neutral[900],
   },
   badgesContainer: {
@@ -220,7 +220,7 @@ const styles = StyleSheet.create({
   },
   statusText: {
     fontFamily: 'Inter-Medium',
-    fontSize: 12,
+    fontSize: 8,
   },
   quantityContainer: {
     width: 50,
@@ -229,13 +229,13 @@ const styles = StyleSheet.create({
   },
   quantityLabel: {
     fontFamily: 'Inter-Regular',
-    fontSize: 12,
+    fontSize: 8,
     color: Colors.neutral[500],
     marginBottom: 4,
   },
   quantityValue: {
     fontFamily: 'Inter-SemiBold',
-    fontSize: 16,
+    fontSize: 10,
     color: Colors.neutral[900],
     marginBottom: 4,
   },
@@ -254,13 +254,13 @@ const styles = StyleSheet.create({
   },
   expandedLabel: {
     fontFamily: 'Inter-Regular',
-    fontSize: 12,
+    fontSize: 10,
     color: Colors.neutral[500],
     marginBottom: 4,
   },
   expandedValue: {
     fontFamily: 'Inter-Medium',
-    fontSize: 14,
+    fontSize: 10,
     color: Colors.neutral[800],
   },
   promotionsContainer: {
@@ -271,7 +271,7 @@ const styles = StyleSheet.create({
   },
   promotionsTitle: {
     fontFamily: 'Inter-SemiBold',
-    fontSize: 14,
+    fontSize: 10,
     color: Colors.primary[700],
     marginBottom: 8,
   },
@@ -283,13 +283,13 @@ const styles = StyleSheet.create({
   },
   promotionDescription: {
     fontFamily: 'Inter-Regular',
-    fontSize: 13,
+    fontSize: 10,
     color: Colors.neutral[800],
     marginBottom: 4,
   },
   promotionDiscount: {
     fontFamily: 'Inter-Medium',
-    fontSize: 13,
+    fontSize: 10,
     color: Colors.primary[700],
   },
 });

@@ -214,14 +214,14 @@ const styles = StyleSheet.create({
   },
   welcomeTitle: {
     fontFamily: 'Inter-Bold',
-    fontSize: 24,
+    fontSize: 18,
     color: Colors.neutral[900],
     marginBottom: 12,
     textAlign: 'center',
   },
   welcomeDescription: {
     fontFamily: 'Inter-Regular',
-    fontSize: 16,
+    fontSize: 12,
     color: Colors.neutral[600],
     textAlign: 'center',
     lineHeight: 24,
@@ -234,7 +234,7 @@ const styles = StyleSheet.create({
   },
   inputLabel: {
     fontFamily: 'Inter-SemiBold',
-    fontSize: 16,
+    fontSize: 14,
     color: Colors.neutral[900],
   },
   textInput: {
@@ -243,7 +243,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 14,
-    fontSize: 16,
+    fontSize: 10,
     fontFamily: 'Inter-Regular',
     color: Colors.neutral[900],
     backgroundColor: Colors.white,
@@ -253,7 +253,7 @@ const styles = StyleSheet.create({
     maxHeight: 200,
   },
   inputHelper: {
-    fontSize: 12,
+    fontSize: 8,
     color: Colors.neutral[500],
     textAlign: 'right',
     fontFamily: 'Inter-Regular',
@@ -276,7 +276,7 @@ const styles = StyleSheet.create({
   },
   cancelButtonText: {
     fontFamily: 'Inter-SemiBold',
-    fontSize: 16,
+    fontSize: 12,
     color: Colors.neutral[700],
   },
   sendButton: {
@@ -302,7 +302,7 @@ const styles = StyleSheet.create({
   },
   sendButtonText: {
     fontFamily: 'Inter-SemiBold',
-    fontSize: 16,
+    fontSize: 11,
     color: Colors.white,
   },
 }); 

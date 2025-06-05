@@ -736,7 +736,7 @@ const styles = StyleSheet.create({
   },
   storeSelectorText: {
     fontFamily: 'Inter-Medium',
-    fontSize: 15,
+    fontSize: 12,
     color: Colors.neutral[700],
     marginRight: 8,
     flex: 1,
@@ -757,7 +757,7 @@ const styles = StyleSheet.create({
     flex: 1,
     height: 44,
     fontFamily: 'Inter-Regular',
-    fontSize: 16,
+    fontSize: 12,
     color: Colors.neutral[900],
   },
   clearButton: {
@@ -785,7 +785,7 @@ const styles = StyleSheet.create({
   },
   categoryButtonText: {
     fontFamily: 'Inter-Medium',
-    fontSize: 14,
+    fontSize: 10,
     color: Colors.neutral[700],
   },
   categoryButtonTextActive: {
@@ -801,7 +801,7 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     fontFamily: 'Inter-Medium',
-    fontSize: 16,
+    fontSize: 12,
     color: Colors.neutral[700],
     marginTop: 16,
   },
@@ -818,13 +818,13 @@ const styles = StyleSheet.create({
   },
   emptyTitle: {
     fontFamily: 'Inter-SemiBold',
-    fontSize: 18,
+    fontSize: 15,
     color: Colors.neutral[800],
     marginBottom: 8,
   },
   emptyText: {
     fontFamily: 'Inter-Regular',
-    fontSize: 14,
+    fontSize: 10,
     color: Colors.neutral[600],
     textAlign: 'center',
     paddingHorizontal: 24,
@@ -855,7 +855,7 @@ const styles = StyleSheet.create({
   },
   storeItemText: {
     fontFamily: 'Inter-Regular',
-    fontSize: 15,
+    fontSize: 10,
     color: Colors.neutral[700],
   },
   modalOverlay: {
@@ -887,7 +887,7 @@ const styles = StyleSheet.create({
   },
   filterTitle: {
     fontFamily: 'Inter-SemiBold',
-    fontSize: 18,
+    fontSize: 15,
     color: Colors.neutral[900],
   },
   closeButton: {
@@ -910,7 +910,7 @@ const styles = StyleSheet.create({
   },
   filterSectionTitle: {
     fontFamily: 'Inter-SemiBold',
-    fontSize: 16,
+    fontSize: 12,
     color: Colors.neutral[800],
     marginBottom: 12,
   },
@@ -933,7 +933,7 @@ const styles = StyleSheet.create({
   },
   filterOptionText: {
     fontFamily: 'Inter-Medium',
-    fontSize: 14,
+    fontSize: 10,
     color: Colors.neutral[700],
   },
   filterOptionTextActive: {
@@ -957,7 +957,7 @@ const styles = StyleSheet.create({
     flex: 1,
     height: 40,
     fontFamily: 'Inter-Regular',
-    fontSize: 15,
+    fontSize: 12,
     color: Colors.neutral[900],
   },
 });

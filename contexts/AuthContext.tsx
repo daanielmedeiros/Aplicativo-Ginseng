@@ -31,8 +31,8 @@ const getRedirectUri = () => {
     return 'http://localhost:8081/';
   } else {
     // Para mobile (iOS e Android), usar sempre o scheme customizado
-    return 'com.grupoginseng.app://auth';
-    //return 'exp://192.168.0.11:8081';
+    //return 'com.grupoginseng.app://auth';
+    return 'exp://10.77.77.114:8081';
   }
 };
 

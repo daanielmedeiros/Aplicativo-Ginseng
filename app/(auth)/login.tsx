@@ -210,7 +210,7 @@ const styles = StyleSheet.create({
   },
   microsoftButtonText: {
     fontFamily: 'Inter-Medium',
-    fontSize: 16,
+    fontSize: 14,
     color: Colors.white,
   },
   buttonLoading: {
@@ -225,14 +225,14 @@ const styles = StyleSheet.create({
   },
   helpText: {
     fontFamily: 'Inter-Regular',
-    fontSize: 14,
+    fontSize: 10,
     color: Colors.neutral[200],
     textAlign: 'center',
     marginBottom: 24,
   },
   versionText: {
     fontFamily: 'Inter-Regular',
-    fontSize: 12,
+    fontSize: 10,
     color: Colors.neutral[200],
     textAlign: 'center',
     marginTop: 32,

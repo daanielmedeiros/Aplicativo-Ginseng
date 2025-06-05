@@ -1443,28 +1443,28 @@ export default function AnalyticsScreen() {
                     {currentBookings.map((booking) => (
                       <View key={booking.id} style={{ backgroundColor: 'white', borderRadius: 8, padding: 15, marginBottom: 10, borderWidth: 1, borderColor: '#ddd' }}>
                         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-                          <Text style={{ fontSize: 18, fontWeight: 'bold', color: 'black' }}>
+                          <Text style={{ fontSize: 14, fontWeight: 'bold', color: 'black' }}>
                             {booking.sala_nome}
                           </Text>
                           <TouchableOpacity 
                             onPress={() => deleteBooking(booking.id)}
                             style={{ backgroundColor: '#ff6b6b', padding: 8, borderRadius: 5 }}
                           >
-                            <Text style={{ color: 'white', fontSize: 16 }}>✕</Text>
+                            <Text style={{ color: 'white', fontSize: 12 }}>✕</Text>
                           </TouchableOpacity>
                         </View>
                         
                         <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
                           {/* Coluna da esquerda - Informações principais */}
                           <View style={{ flex: 1, paddingRight: 12 }}>
-                            <Text style={{ fontSize: 14, color: 'black', marginBottom: 6 }}>
+                            <Text style={{ fontSize: 12, color: 'black', marginBottom: 6 }}>
                               👤 <Text style={{ fontWeight: 'bold' }}>Responsável:</Text> {booking.nome_responsavel}
                             </Text>
-                            <Text style={{ fontSize: 14, color: 'black', marginBottom: 6 }}>
+                            <Text style={{ fontSize: 12, color: 'black', marginBottom: 6 }}>
                               🏢 <Text style={{ fontWeight: 'bold' }}>Departamento:</Text> {booking.departamento}
                             </Text>
                             {booking.descricao && (
-                              <Text style={{ fontSize: 14, color: 'black' }}>
+                              <Text style={{ fontSize: 12, color: 'black' }}>
                                 📝 <Text style={{ fontWeight: 'bold' }}>Descrição:</Text> {booking.descricao}
                               </Text>
                             )}
@@ -1472,10 +1472,10 @@ export default function AnalyticsScreen() {
                           
                           {/* Coluna da direita - Data e horário */}
                           <View style={{ alignItems: 'flex-end' }}>
-                            <Text style={{ fontSize: 14, color: 'gray', marginBottom: 6 }}>
+                            <Text style={{ fontSize: 10, color: 'gray', marginBottom: 6 }}>
                               📅 {booking.data_reserva.split('T')[0]}
                             </Text>
-                            <Text style={{ fontSize: 14, color: 'gray' }}>
+                            <Text style={{ fontSize: 10, color: 'gray' }}>
                               🕐 {booking.horario_inicio.split('T')[1].substring(0, 5)} - {booking.horario_fim.split('T')[1].substring(0, 5)}
                             </Text>
                           </View>
@@ -1542,7 +1542,7 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontFamily: 'Inter-SemiBold',
-    fontSize: 20,
+    fontSize: 18,
     color: Colors.white,
   },
   scrollView: {
@@ -1563,7 +1563,7 @@ const styles = StyleSheet.create({
   },
   dateText: {
     fontFamily: 'Inter-Medium',
-    fontSize: 16,
+    fontSize: 12,
     color: Colors.neutral[900],
     marginLeft: 12,
     flex: 1,
@@ -1589,7 +1589,7 @@ const styles = StyleSheet.create({
   },
   roomName: {
     fontFamily: 'Inter-SemiBold',
-    fontSize: 16,
+    fontSize: 12,
     color: Colors.neutral[900],
     marginBottom: 8,
   },
@@ -1604,7 +1604,7 @@ const styles = StyleSheet.create({
   },
   roomDetailText: {
     fontFamily: 'Inter-Regular',
-    fontSize: 14,
+    fontSize: 12,
     color: Colors.neutral[500],
   },
   roomStatus: {
@@ -1614,7 +1614,7 @@ const styles = StyleSheet.create({
   },
   roomStatusText: {
     fontFamily: 'Inter-Medium',
-    fontSize: 14,
+    fontSize: 12,
     marginRight: 8,
   },
   availableText: {
@@ -1655,7 +1655,7 @@ const styles = StyleSheet.create({
   },
   modalTitle: {
     fontFamily: 'Inter-SemiBold',
-    fontSize: 20,
+    fontSize: 12,
     color: Colors.neutral[900],
   },
   closeButton: {
@@ -1667,7 +1667,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   closeButtonText: {
-    fontSize: 16,
+    fontSize: 10,
     color: Colors.neutral[700],
   },
   timeSlotsContainer: {
@@ -1675,7 +1675,7 @@ const styles = StyleSheet.create({
   },
   timeSlotsTitle: {
     fontFamily: 'Inter-SemiBold',
-    fontSize: 16,
+    fontSize: 12,
     color: Colors.neutral[900],
     marginBottom: 12,
   },
@@ -1700,7 +1700,7 @@ const styles = StyleSheet.create({
   },
   timeSlotText: {
     fontFamily: 'Inter-Medium',
-    fontSize: 14,
+    fontSize: 10,
     color: Colors.neutral[900],
     marginLeft: 8,
     flex: 1,
@@ -1711,7 +1711,7 @@ const styles = StyleSheet.create({
   },
   bookingInfoText: {
     fontFamily: 'Inter-Regular',
-    fontSize: 12,
+    fontSize: 10,
     color: Colors.neutral[600],
     marginTop: 2,
   },
@@ -1727,7 +1727,7 @@ const styles = StyleSheet.create({
   },
   scheduleButtonText: {
     fontFamily: 'Inter-SemiBold',
-    fontSize: 16,
+    fontSize: 12,
     color: Colors.white,
   },
   scheduleButtonTextDisabled: {
@@ -1741,7 +1741,7 @@ const styles = StyleSheet.create({
   },
   priorityText: {
     fontFamily: 'Inter-Medium',
-    fontSize: 12,
+    fontSize: 10,
     color: Colors.primary[700],
   },
   bookingForm: {
@@ -1753,7 +1753,7 @@ const styles = StyleSheet.create({
   },
   inputLabel: {
     fontFamily: 'Inter-Medium',
-    fontSize: 14,
+    fontSize: 12,
     color: Colors.neutral[700],
   },
   input: {
@@ -1761,7 +1761,7 @@ const styles = StyleSheet.create({
     padding: 12,
     borderRadius: 8,
     fontFamily: 'Inter-Regular',
-    fontSize: 16,
+    fontSize: 10,
     color: Colors.neutral[900],
     borderWidth: 1,
     borderColor: Colors.neutral[200],
@@ -1792,7 +1792,7 @@ const styles = StyleSheet.create({
   },
   dateModalTitle: {
     fontFamily: 'Inter-SemiBold',
-    fontSize: 20,
+    fontSize: 14,
     color: Colors.neutral[900],
   },
   quickDateContainer: {
@@ -1812,7 +1812,7 @@ const styles = StyleSheet.create({
   },
   quickDateText: {
     fontFamily: 'Inter-Medium',
-    fontSize: 14,
+    fontSize: 10,
     color: Colors.primary[700],
   },
   datePickerContainer: {
@@ -1832,12 +1832,12 @@ const styles = StyleSheet.create({
   },
   androidDateButtonText: {
     fontFamily: 'Inter-SemiBold',
-    fontSize: 18,
+    fontSize: 12,
     color: Colors.neutral[900],
   },
   androidDateButtonSubtext: {
     fontFamily: 'Inter-Regular',
-    fontSize: 12,
+    fontSize: 10,
     color: Colors.neutral[500],
   },
   dateModalButtons: {
@@ -1857,7 +1857,7 @@ const styles = StyleSheet.create({
   },
   dateModalButtonText: {
     fontFamily: 'Inter-SemiBold',
-    fontSize: 14,
+    fontSize: 10,
     color: Colors.neutral[700],
   },
   dateModalButtonTextPrimary: {
@@ -1881,7 +1881,7 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     fontFamily: 'Inter-Medium',
-    fontSize: 16,
+    fontSize: 12,
     color: Colors.neutral[700],
     marginTop: 16,
   },
@@ -1928,7 +1928,7 @@ const styles = StyleSheet.create({
   },
   slotCountsTitle: {
     fontFamily: 'Inter-Medium',
-    fontSize: 14,
+    fontSize: 12,
     color: Colors.neutral[700],
   },
   slotCountsRow: {
@@ -1941,12 +1941,12 @@ const styles = StyleSheet.create({
   },
   slotCountNumber: {
     fontFamily: 'Inter-SemiBold',
-    fontSize: 16,
+    fontSize: 12,
     color: Colors.neutral[900],
   },
   slotCountLabel: {
     fontFamily: 'Inter-Regular',
-    fontSize: 12,
+    fontSize: 10,
     color: Colors.neutral[500],
   },
   occupiedText: {
@@ -2039,7 +2039,7 @@ const styles = StyleSheet.create({
   },
   paginationButtonText: {
     fontFamily: 'Inter-SemiBold',
-    fontSize: 14,
+    fontSize: 12,
     color: Colors.white,
   },
   paginationButtonTextDisabled: {
@@ -2047,7 +2047,7 @@ const styles = StyleSheet.create({
   },
   paginationText: {
     fontFamily: 'Inter-Medium',
-    fontSize: 14,
+    fontSize: 12,
     color: Colors.neutral[700],
   },
   emptyContainer: {
@@ -2091,7 +2091,7 @@ const styles = StyleSheet.create({
   },
   filterButtonText: {
     fontFamily: 'Inter-Medium',
-    fontSize: 14,
+    fontSize: 10,
     color: Colors.neutral[700],
   },
   filterButtonTextActive: {

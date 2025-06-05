@@ -91,7 +91,7 @@ const styles = StyleSheet.create({
   },
   productName: {
     fontFamily: 'Inter-Medium',
-    fontSize: 14,
+    fontSize: 12,
     color: Colors.neutral[900],
     marginBottom: 4,
     height: 40,

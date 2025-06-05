@@ -928,12 +928,13 @@ const styles = StyleSheet.create({
   },
   greeting: {
     fontFamily: 'Inter-SemiBold',
-    fontSize: 18,
+    fontSize: 16,
     color: Colors.white,
+    fontWeight: 'bold',
   },
   date: {
     fontFamily: 'Inter-Regular',
-    fontSize: 14,
+    fontSize: 12,
     color: Colors.neutral[200],
     marginTop: 4,
   },
@@ -974,10 +975,11 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontFamily: 'Inter-SemiBold',
-    fontSize: 18,
+    fontSize: 16,
     color: Colors.neutral[900],
     marginTop: 24,
     marginBottom: 16,
+    fontWeight: 'bold',
   },
   cardsContainer: {
     gap: 16,
@@ -992,13 +994,8 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.white,
     borderRadius: 12,
     marginBottom: 12,
-    // Sombra para iOS
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    // Sombra para Android
-    elevation: Platform.OS === 'android' ? 6 : 0,
+    borderWidth: 1,
+    borderColor: Colors.neutral[200],
   },
   activityIconContainer: {
     width: 40,
@@ -1013,18 +1010,18 @@ const styles = StyleSheet.create({
   },
   activityTitle: {
     fontFamily: 'Inter-Medium',
-    fontSize: 16,
+    fontSize: 12,
     color: Colors.neutral[900],
   },
   activityDescription: {
     fontFamily: 'Inter-Regular',
-    fontSize: 14,
+    fontSize: 10,
     color: Colors.neutral[500],
     marginTop: 4,
   },
   activityTime: {
     fontFamily: 'Inter-Medium',
-    fontSize: 14,
+    fontSize: 10,
     color: Colors.neutral[500],
   },
   topSellingHeader: {
@@ -1045,7 +1042,7 @@ const styles = StyleSheet.create({
   },
   slideButtonText: {
     fontFamily: 'Inter-Medium',
-    fontSize: 12,
+    fontSize: 10,
     color: Colors.neutral[500],
   },
 
@@ -1059,43 +1056,42 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
   },
   topSellingItem: {
-    width: 180,
+    width: 160,
     marginRight: 16,
-    backgroundColor: Colors.white,
-    borderRadius: 16,
+    backgroundColor: Colors.neutral[50],
+    borderRadius: 30,
     padding: 16,
     borderWidth: 1,
     borderColor: Colors.neutral[200],
-    // Sombra para iOS
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.15,
-    shadowRadius: 16,
-    // Sombra para Android
-    elevation: Platform.OS === 'android' ? 12 : 0,
+
+
   },
   topSellingImage: {
     width: '100%',
     height: 140,
     borderRadius: 12,
     marginBottom: 12,
+    borderWidth: 1,
+    borderColor: Colors.neutral[200],
   },
   productInfo: {
     flex: 1,
   },
   productCode: {
     fontFamily: 'Inter-Bold',
-    fontSize: 14,
+    fontSize: 10,
     color: Colors.neutral[800],
     textAlign: 'center',
     marginBottom: 6,
     backgroundColor: Colors.neutral[100],
     paddingVertical: 4,
     borderRadius: 6,
+    borderWidth: 1,
+    borderColor: Colors.neutral[200],
   },
   productDescription: {
     fontFamily: 'Inter-Medium',
-    fontSize: 12,
+    fontSize: 10,
     color: Colors.neutral[700],
     marginBottom: 8,
     lineHeight: 16,
@@ -1103,7 +1099,7 @@ const styles = StyleSheet.create({
   },
   totalSales: {
     fontFamily: 'Inter-Bold',
-    fontSize: 14,
+    fontSize: 10,
     color: Colors.primary[600],
     textAlign: 'center',
     backgroundColor: Colors.primary[50],
@@ -1136,7 +1132,7 @@ const styles = StyleSheet.create({
   },
   ruptureTitle: {
     fontFamily: 'Inter-SemiBold',
-    fontSize: 16,
+    fontSize: 12,
     color: Colors.neutral[900],
     flex: 1,
   },
@@ -1147,7 +1143,7 @@ const styles = StyleSheet.create({
   },
   rupturePeriodText: {
     fontFamily: 'Inter-Medium',
-    fontSize: 12,
+    fontSize: 10,
   },
   ruptureValues: {
     gap: 12,
@@ -1159,16 +1155,16 @@ const styles = StyleSheet.create({
   },
   ruptureValueLabel: {
     fontFamily: 'Inter-Medium',
-    fontSize: 14,
+    fontSize: 12,
     color: Colors.neutral[600],
   },
   ruptureValueNumber: {
     fontFamily: 'Inter-SemiBold',
-    fontSize: 16,
+    fontSize: 12,
   },
   ruptureValue: {
     fontFamily: 'Inter-Medium',
-    fontSize: 14,
+    fontSize: 12,
     color: Colors.neutral[900],
   },
   highlightedRow: {
@@ -1202,7 +1198,7 @@ const styles = StyleSheet.create({
   },
   avatarModalTitle: {
     fontFamily: 'Inter-SemiBold',
-    fontSize: 20,
+    fontSize: 15,
     color: Colors.neutral[900],
   },
   closeButton: {
