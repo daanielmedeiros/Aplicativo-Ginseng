@@ -32,6 +32,7 @@ const getRedirectUri = () => {
   } else {
     // Para mobile (iOS e Android), usar sempre o scheme customizado
     return 'com.grupoginseng.app://auth';
+    //return 'exp://192.168.0.11:8081';
   }
 };
 

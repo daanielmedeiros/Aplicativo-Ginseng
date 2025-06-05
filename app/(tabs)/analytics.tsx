@@ -13,7 +13,8 @@ import {
   Alert,
   ActivityIndicator,
   Keyboard,
-  TouchableWithoutFeedback
+  TouchableWithoutFeedback,
+  KeyboardAvoidingView
 } from 'react-native';
 import { useColorScheme } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
@@ -132,9 +133,10 @@ export default function AnalyticsScreen() {
   const [loadingRoomData, setLoadingRoomData] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(3);
-  const [showDepartmentDropdown, setShowDepartmentDropdown] = useState(false);
+
   const [timeSlotFilter, setTimeSlotFilter] = useState<'available' | 'occupied'>('available');
   const [occupiedSlotsPage, setOccupiedSlotsPage] = useState(1);
+  const [availableSlotsPage, setAvailableSlotsPage] = useState(1);
   const [slotsPerPage] = useState(5);
   
   // Usando nome do usuário logado do contexto de autenticação
@@ -145,7 +147,6 @@ export default function AnalyticsScreen() {
     console.log('=== INICIANDO FECHAMENTO SEGURO DO MODAL DE BOOKING ===');
     try {
       setShowBookingModal(false);
-      setShowDepartmentDropdown(false);
       // Não limpar os dados do formulário aqui para preservar o que o usuário digitou
       console.log('Modal de booking fechado com sucesso');
     } catch (error) {
@@ -153,21 +154,7 @@ export default function AnalyticsScreen() {
     }
   };
 
-  // Lista de departamentos pré-definidos
-  const departments = [
-    'Diretoria',
-    'Gente & Cultura',
-    'Administração',
-    'Financeiro',
-    'T.I',
-    'Auditoria',
-    'Suprimentos',
-    'Departamento Pessoal',
-    'Infraestrutura',
-    'Contabilidade',
-    'AMG',
-    'Outros'
-  ];
+
 
   const rooms: Room[] = [
     { 
@@ -276,11 +263,6 @@ export default function AnalyticsScreen() {
       fetchReservas(selectedDate);
     }
   }, [selectedDate]);
-
-  // Debug: monitorar mudanças no estado do dropdown de departamento
-  useEffect(() => {
-    console.log('Estado showDepartmentDropdown mudou para:', showDepartmentDropdown);
-  }, [showDepartmentDropdown]);
 
   // Debug: monitorar mudanças no estado do modal de booking
   useEffect(() => {
@@ -683,7 +665,7 @@ export default function AnalyticsScreen() {
               });
 
               if (response.ok) {
-                Alert.alert('Sucesso', 'Agendamento excluído com sucesso!');
+                // Alert.alert('Sucesso', 'Agendamento excluído com sucesso!');
                 fetchMyBookings(); // Recarregar lista
                 fetchReservas(); // Recarregar reservas gerais
               } else {
@@ -882,6 +864,7 @@ export default function AnalyticsScreen() {
                   setSelectedRoom(room);
                   setTimeSlotFilter('available'); // Resetar filtro ao abrir modal
                   setOccupiedSlotsPage(1); // Resetar página de ocupados
+                  setAvailableSlotsPage(1); // Resetar página de disponíveis
                   setShowRoomModal(true);
                 }}
               >
@@ -1089,7 +1072,7 @@ export default function AnalyticsScreen() {
                     onPress={() => {
                       console.log('Filtro disponível selecionado');
                       setTimeSlotFilter('available');
-                      setOccupiedSlotsPage(1); // Reset página
+                      setAvailableSlotsPage(1); // Reset página
                     }}
                   >
                     <Text style={[
@@ -1211,34 +1194,93 @@ export default function AnalyticsScreen() {
                     })()}
                   </>
                 ) : (
-                  // FlatList para horários disponíveis (mantém scroll)
-                  <FlatList
-                    style={{ maxHeight: 400 }}
-                    showsVerticalScrollIndicator={true}
-                    keyboardShouldPersistTaps="handled"
-                    data={updatedTimeSlots.filter(slot => slot.isAvailable)}
-                    keyExtractor={(slot) => slot.id}
-                    renderItem={({ item: slot }) => (
-                      <TouchableOpacity
-                        style={[
-                          styles.timeSlot,
-                          selectedTimeSlots.includes(slot.id) && styles.timeSlotSelected
-                        ]}
-                        onPress={() => toggleTimeSlot(slot.id)}
-                      >
-                        <Clock size={16} color={Colors.neutral[500]} />
-                        <Text style={styles.timeSlotText}>
-                          {slot.startTime} - {slot.endTime}
-                        </Text>
-                        <View style={styles.timeSlotInfo}>
-                          {/* Slot disponível */}
-                        </View>
-                        {selectedTimeSlots.includes(slot.id) && (
-                          <Check size={20} color={Colors.primary[500]} />
-                        )}
-                      </TouchableOpacity>
-                    )}
-                  />
+                  // Paginação para horários disponíveis (mesmo layout que ocupados)
+                  <>
+                    <View style={{ minHeight: 250 }}>
+                      {(() => {
+                        const availableSlots = updatedTimeSlots.filter(slot => slot.isAvailable);
+                        const totalAvailablePages = Math.ceil(availableSlots.length / slotsPerPage);
+                        const startIndex = (availableSlotsPage - 1) * slotsPerPage;
+                        const endIndex = startIndex + slotsPerPage;
+                        const currentAvailableSlots = availableSlots.slice(startIndex, endIndex);
+                        
+                        return currentAvailableSlots.map((slot) => {
+                          return (
+                            <TouchableOpacity
+                              key={slot.id}
+                              style={[
+                                styles.timeSlot,
+                                selectedTimeSlots.includes(slot.id) && styles.timeSlotSelected
+                              ]}
+                              onPress={() => toggleTimeSlot(slot.id)}
+                            >
+                              <Clock size={16} color={Colors.neutral[500]} />
+                              <Text style={styles.timeSlotText}>
+                                {slot.startTime} - {slot.endTime}
+                              </Text>
+                              <View style={styles.timeSlotInfo}>
+                                {/* Slot disponível */}
+                              </View>
+                              {selectedTimeSlots.includes(slot.id) && (
+                                <Check size={20} color={Colors.primary[500]} />
+                              )}
+                            </TouchableOpacity>
+                          );
+                        });
+                      })()}
+                    </View>
+                    
+                    {/* Paginação para horários disponíveis */}
+                    {(() => {
+                      const availableSlots = updatedTimeSlots.filter(slot => slot.isAvailable);
+                      const totalAvailablePages = Math.ceil(availableSlots.length / slotsPerPage);
+                      
+                      if (totalAvailablePages > 1) {
+                        return (
+                          <View style={styles.paginationContainer}>
+                            <TouchableOpacity 
+                              onPress={() => {
+                                if (availableSlotsPage > 1) {
+                                  setAvailableSlotsPage(availableSlotsPage - 1);
+                                }
+                              }}
+                              style={[
+                                styles.paginationButton,
+                                availableSlotsPage === 1 && styles.paginationButtonDisabled
+                              ]}
+                              disabled={availableSlotsPage === 1}
+                            >
+                              <Text style={[
+                                styles.paginationButtonText,
+                                availableSlotsPage === 1 && styles.paginationButtonTextDisabled
+                              ]}>Anterior</Text>
+                            </TouchableOpacity>
+                            <Text style={styles.paginationText}>
+                              Página {availableSlotsPage} de {totalAvailablePages}
+                            </Text>
+                            <TouchableOpacity 
+                              onPress={() => {
+                                if (availableSlotsPage < totalAvailablePages) {
+                                  setAvailableSlotsPage(availableSlotsPage + 1);
+                                }
+                              }}
+                              style={[
+                                styles.paginationButton,
+                                availableSlotsPage === totalAvailablePages && styles.paginationButtonDisabled
+                              ]}
+                              disabled={availableSlotsPage === totalAvailablePages}
+                            >
+                              <Text style={[
+                                styles.paginationButtonText,
+                                availableSlotsPage === totalAvailablePages && styles.paginationButtonTextDisabled
+                              ]}>Próximo</Text>
+                            </TouchableOpacity>
+                          </View>
+                        );
+                      }
+                      return null;
+                    })()}
+                  </>
                 )}
               </View>
 
@@ -1279,7 +1321,17 @@ export default function AnalyticsScreen() {
               closeBookingModal();
             }}
           />
-          <View style={styles.modalContent}>
+          <KeyboardAvoidingView 
+            style={{ flex: 1, justifyContent: 'center' }}
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+          >
+            <ScrollView 
+              contentContainerStyle={styles.modalScrollContainer}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+            >
+              <View style={styles.modalContent}>
               <View style={styles.modalHeader}>
                 <Text style={styles.modalTitle}>Informações do Agendamento</Text>
                 <TouchableOpacity 
@@ -1300,84 +1352,24 @@ export default function AnalyticsScreen() {
                     style={styles.input}
                     value={bookingInfo.responsibleName}
                     onChangeText={(text) => setBookingInfo(prev => ({ ...prev, responsibleName: text }))}
-                    onFocus={() => {
-                      console.log('Campo nome recebeu foco - fechando dropdown');
-                      if (showDepartmentDropdown) {
-                        setShowDepartmentDropdown(false);
-                      }
-                    }}
+
                     placeholder="Digite o nome do responsável"
                     placeholderTextColor={Colors.neutral[400]}
                     editable={!submittingBooking}
                   />
                 </View>
 
-                <TouchableWithoutFeedback>
-                  <View style={styles.inputContainer}>
-                    <Text style={styles.inputLabel}>Departamento *</Text>
-                    <TouchableOpacity
-                      style={[styles.input, styles.departmentSelector]}
-                      onPress={() => {
-                        console.log('=== CLIQUE NO DROPDOWN DE DEPARTAMENTO ===');
-                        console.log('Estado atual showDepartmentDropdown:', showDepartmentDropdown);
-                        
-                        // Fechar teclado se estiver aberto
-                        Keyboard.dismiss();
-                        console.log('Teclado fechado');
-                        
-                        setShowDepartmentDropdown(!showDepartmentDropdown);
-                      }}
-                      disabled={submittingBooking}
-                      activeOpacity={0.7}
-                    >
-                      <Text style={[
-                        styles.departmentSelectorText,
-                        !bookingInfo.department && styles.placeholderText
-                      ]}>
-                        {bookingInfo.department || 'Selecione o departamento'}
-                      </Text>
-                      <ChevronRight 
-                        size={20} 
-                        color={Colors.neutral[500]} 
-                        style={{
-                          transform: [{ rotate: showDepartmentDropdown ? '90deg' : '0deg' }]
-                        }}
-                      />
-                    </TouchableOpacity>
-                    
-                    {/* Dropdown de departamentos */}
-                    {showDepartmentDropdown && (
-                      <View style={styles.departmentDropdown}>
-                        <ScrollView style={styles.departmentDropdownScroll} nestedScrollEnabled={true}>
-                          {departments.map((department, index) => (
-                            <TouchableOpacity
-                              key={index}
-                              style={[
-                                styles.departmentDropdownItem,
-                                bookingInfo.department === department && styles.departmentDropdownItemSelected
-                              ]}
-                              onPress={() => {
-                                console.log('=== SELECIONANDO DEPARTAMENTO NO DROPDOWN ===', department);
-                                setBookingInfo(prev => ({ ...prev, department }));
-                                setShowDepartmentDropdown(false);
-                              }}
-                            >
-                              <Text style={[
-                                styles.departmentDropdownItemText,
-                                bookingInfo.department === department && styles.departmentDropdownItemTextSelected
-                              ]}>
-                                {department}
-                              </Text>
-                              {bookingInfo.department === department && (
-                                <Check size={16} color={Colors.primary[500]} />
-                              )}
-                            </TouchableOpacity>
-                          ))}
-                        </ScrollView>
-                      </View>
-                    )}
-                  </View>
-                </TouchableWithoutFeedback>
+                <View style={styles.inputContainer}>
+                  <Text style={styles.inputLabel}>Departamento *</Text>
+                  <TextInput
+                    style={styles.input}
+                    value={bookingInfo.department}
+                    onChangeText={(text) => setBookingInfo(prev => ({ ...prev, department: text }))}
+                    placeholder="Digite o departamento"
+                    placeholderTextColor={Colors.neutral[400]}
+                    editable={!submittingBooking}
+                  />
+                </View>
 
                 <View style={styles.inputContainer}>
                   <Text style={styles.inputLabel}>Descrição</Text>
@@ -1385,12 +1377,6 @@ export default function AnalyticsScreen() {
                     style={[styles.input, styles.textArea]}
                     value={bookingInfo.description}
                     onChangeText={(text) => setBookingInfo(prev => ({ ...prev, description: text }))}
-                    onFocus={() => {
-                      console.log('Campo descrição recebeu foco - fechando dropdown');
-                      if (showDepartmentDropdown) {
-                        setShowDepartmentDropdown(false);
-                      }
-                    }}
                     placeholder="Digite a descrição do agendamento"
                     placeholderTextColor={Colors.neutral[400]}
                     multiline
@@ -1419,6 +1405,8 @@ export default function AnalyticsScreen() {
                 )}
               </TouchableOpacity>
             </View>
+          </ScrollView>
+        </KeyboardAvoidingView>
         </View>
       </Modal>
 
@@ -1638,15 +1626,18 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-start',
     paddingTop: 60,
   },
+  modalScrollContainer: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    paddingVertical: 20,
+  },
+
   modalContent: {
     backgroundColor: Colors.white,
-    borderBottomLeftRadius: 20,
-    borderBottomRightRadius: 20,
+    borderRadius: 20,
     padding: 20,
-    maxHeight: '80%',
-    minHeight: 400,
     marginHorizontal: 16,
-    marginVertical: 70,
+    marginVertical: 'auto',
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
@@ -2073,64 +2064,7 @@ const styles = StyleSheet.create({
     minHeight: 250,
     justifyContent: 'flex-start',
   },
-  departmentSelector: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    minHeight: 48,
-    paddingHorizontal: 12,
-  },
-  departmentSelectorText: {
-    fontFamily: 'Inter-Regular',
-    fontSize: 16,
-    color: Colors.neutral[900],
-    flex: 1,
-  },
-  placeholderText: {
-    color: Colors.neutral[400],
-  },
-  departmentDropdown: {
-    backgroundColor: Colors.white,
-    borderWidth: 1,
-    borderColor: Colors.neutral[200],
-    borderRadius: 8,
-    maxHeight: 200,
-    marginTop: 4,
-    zIndex: 1000,
-    elevation: 5,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-  },
-  departmentDropdownScroll: {
-    maxHeight: 200,
-  },
-  departmentDropdownItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.neutral[100],
-  },
-  departmentDropdownItemSelected: {
-    backgroundColor: Colors.primary[50],
-  },
-  departmentDropdownItemText: {
-    fontFamily: 'Inter-Regular',
-    fontSize: 14,
-    color: Colors.neutral[900],
-    flex: 1,
-  },
-  departmentDropdownItemTextSelected: {
-    fontFamily: 'Inter-Medium',
-    color: Colors.primary[700],
-  },
+
   filterButtonsContainer: {
     flexDirection: 'row',
     gap: 8,
@@ -2139,17 +2073,21 @@ const styles = StyleSheet.create({
   },
   filterButton: {
     flex: 1,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 6,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 8,
     borderWidth: 1,
     borderColor: Colors.neutral[300],
     backgroundColor: Colors.neutral[50],
     alignItems: 'center',
+    overflow: 'hidden',
+    elevation: 0,
   },
   filterButtonActive: {
     backgroundColor: Colors.primary[500],
     borderColor: Colors.primary[500],
+    overflow: 'hidden',
+    elevation: 2,
   },
   filterButtonText: {
     fontFamily: 'Inter-Medium',

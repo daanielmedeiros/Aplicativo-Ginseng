@@ -5,7 +5,7 @@
     "version": "1.0.0",
     "platforms": ["ios", "android", "web"],
     "orientation": "portrait",
-    "icon": "./assets/images/icon-logo.png",
+    "icon": "./assets/images/icon-logo-android.png",
     "scheme": "com.grupoginseng.app",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
@@ -22,17 +22,16 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.grupoginseng.app",
       "icon": {
-        "light": "./assets/images/icon-logo.png",
-        "dark": "./assets/images/icon-logo.png",
-        "tinted": "./assets/images/icon-logo.png"
+        "light": "./assets/images/icon-logo-android.png",
+        "dark": "./assets/images/icon-logo-android.png",
+        "tinted": "./assets/images/icon-logo-android.png"
       }
     },
     "android": {
       "package": "com.grupoginseng.app",
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/icon-logo.png",
-        "backgroundColor": "#04506B",
-        "resizeMode": "contain"
+        "foregroundImage": "./assets/images/icon-logo-android.png",
+        "backgroundColor": "#04506B"
       },
       "intentFilters": [
         {

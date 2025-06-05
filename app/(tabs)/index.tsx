@@ -13,10 +13,7 @@ import {
   FlatList,
   Dimensions,
   Alert,
-  Platform,
-  TextInput,
-  TouchableWithoutFeedback,
-  Keyboard
+  Platform
 } from 'react-native';
 import { useColorScheme } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
@@ -139,10 +136,7 @@ export default function HomeScreen() {
   const [historicalData, setHistoricalData] = useState<number[]>([]);
   const [loadingHistorical, setLoadingHistorical] = useState(true);
   const [historicalProgress, setHistoricalProgress] = useState(0);
-  const [showFeedbackModal, setShowFeedbackModal] = useState(false);
-  const [feedbackTitle, setFeedbackTitle] = useState('');
-  const [feedbackDescription, setFeedbackDescription] = useState('');
-  const [sendingFeedback, setSendingFeedback] = useState(false);
+
 
   const avatars: AvatarKey[] = [1, 2, 3, 4, 5, 6, 7, 8, 9];
 
@@ -167,48 +161,7 @@ export default function HomeScreen() {
     }
   };
 
-  const handleSendFeedback = async () => {
-    if (!feedbackTitle.trim() || !feedbackDescription.trim()) {
-      Alert.alert('Erro', 'Por favor, preencha todos os campos.');
-      return;
-    }
 
-    try {
-      setSendingFeedback(true);
-      
-      const response = await fetch('https://api.grupoginseng.com.br/comments', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          usuario: user?.name || 'Usuário Anônimo',
-          titulo: feedbackTitle.trim(),
-          descricao: feedbackDescription.trim(),
-        }),
-      });
-
-      if (response.ok) {
-        Alert.alert('Sucesso', 'Seu feedback foi enviado com sucesso! Obrigado pela contribuição.');
-        setFeedbackTitle('');
-        setFeedbackDescription('');
-        setShowFeedbackModal(false);
-      } else {
-        throw new Error('Erro ao enviar feedback');
-      }
-    } catch (error) {
-      console.error('Erro ao enviar feedback:', error);
-      Alert.alert('Erro', 'Não foi possível enviar seu feedback. Tente novamente mais tarde.');
-    } finally {
-      setSendingFeedback(false);
-    }
-  };
-
-  const handleCloseFeedbackModal = () => {
-    setFeedbackTitle('');
-    setFeedbackDescription('');
-    setShowFeedbackModal(false);
-  };
 
   const fetchBearerToken = async () => {
     try {
@@ -572,7 +525,7 @@ export default function HomeScreen() {
         <View style={styles.headerRight}>
           <TouchableOpacity 
             style={styles.iconButton} 
-            onPress={() => setShowFeedbackModal(true)}
+            onPress={() => router.push('/feedback')}
           >
             <MessageSquare size={22} color={Colors.white} />
           </TouchableOpacity>
@@ -687,89 +640,7 @@ export default function HomeScreen() {
         </Pressable>
       </Modal>
 
-      {/* Modal de Feedback */}
-      <Modal
-        visible={showFeedbackModal}
-        transparent={true}
-        animationType="fade"
-        onRequestClose={handleCloseFeedbackModal}
-      >
-        <Pressable 
-          style={styles.modalOverlay}
-          onPress={handleCloseFeedbackModal}
-        >
-          <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-            <View style={styles.feedbackModalContent}>
-              <View style={styles.feedbackModalHeader}>
-                <Text style={styles.feedbackModalTitle}>Enviar Feedback</Text>
-                <TouchableOpacity 
-                  onPress={handleCloseFeedbackModal}
-                  style={styles.closeButton}
-                >
-                  <Text style={styles.closeButtonText}>✕</Text>
-                </TouchableOpacity>
-              </View>
-              
-              <View style={styles.feedbackForm}>
-                <View style={styles.inputContainer}>
-                  <Text style={styles.inputLabel}>Título *</Text>
-                  <TextInput
-                    style={styles.textInput}
-                    value={feedbackTitle}
-                    onChangeText={setFeedbackTitle}
-                    placeholder="Digite o título do seu feedback"
-                    placeholderTextColor={Colors.neutral[400]}
-                    maxLength={100}
-                  />
-                </View>
 
-                <View style={styles.inputContainer}>
-                  <Text style={styles.inputLabel}>Descrição *</Text>
-                  <TextInput
-                    style={[styles.textInput, styles.textArea]}
-                    value={feedbackDescription}
-                    onChangeText={setFeedbackDescription}
-                    placeholder="Descreva seu feedback, sugestão ou reclamação..."
-                    placeholderTextColor={Colors.neutral[400]}
-                    multiline
-                    numberOfLines={4}
-                    textAlignVertical="top"
-                    maxLength={500}
-                  />
-                  <Text style={styles.characterCount}>
-                    {feedbackDescription.length}/500
-                  </Text>
-                </View>
-
-                <View style={styles.buttonContainer}>
-                  <TouchableOpacity 
-                    style={styles.cancelButton}
-                    onPress={handleCloseFeedbackModal}
-                    disabled={sendingFeedback}
-                  >
-                    <Text style={styles.cancelButtonText}>Cancelar</Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity 
-                    style={[
-                      styles.sendButton,
-                      (!feedbackTitle.trim() || !feedbackDescription.trim() || sendingFeedback) && styles.sendButtonDisabled
-                    ]}
-                    onPress={handleSendFeedback}
-                    disabled={!feedbackTitle.trim() || !feedbackDescription.trim() || sendingFeedback}
-                  >
-                    {sendingFeedback ? (
-                      <ActivityIndicator size="small" color={Colors.white} />
-                    ) : (
-                      <Text style={styles.sendButtonText}>Enviar</Text>
-                    )}
-                  </TouchableOpacity>
-                </View>
-              </View>
-            </View>
-          </TouchableWithoutFeedback>
-        </Pressable>
-      </Modal>
 
       <ScrollView 
         style={styles.scrollView}
@@ -794,6 +665,7 @@ export default function HomeScreen() {
               horizontal 
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={styles.topSellingContainer}
+              style={{ backgroundColor: 'transparent' }}
             >
               {topSellingProducts.map((product, index) => (
                 <TouchableOpacity 
@@ -1120,11 +992,13 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.white,
     borderRadius: 12,
     marginBottom: 12,
-    shadowColor: Colors.black,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
+    // Sombra para iOS
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    // Sombra para Android
+    elevation: Platform.OS === 'android' ? 6 : 0,
   },
   activityIconContainer: {
     width: 40,
@@ -1182,50 +1056,62 @@ const styles = StyleSheet.create({
   },
   topSellingContainer: {
     paddingRight: 16,
+    backgroundColor: 'transparent',
   },
   topSellingItem: {
-    width: 160,
+    width: 180,
     marginRight: 16,
     backgroundColor: Colors.white,
-    borderRadius: 12,
-    padding: 12,
-    shadowColor: Colors.black,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: Colors.neutral[200],
+    // Sombra para iOS
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.15,
+    shadowRadius: 16,
+    // Sombra para Android
+    elevation: Platform.OS === 'android' ? 12 : 0,
   },
   topSellingImage: {
     width: '100%',
-    height: 120,
-    borderRadius: 8,
-    marginBottom: 8,
+    height: 140,
+    borderRadius: 12,
+    marginBottom: 12,
   },
   productInfo: {
     flex: 1,
   },
   productCode: {
-    fontFamily: 'Inter-SemiBold',
-    fontSize: 12,
-    color: Colors.neutral[600],
+    fontFamily: 'Inter-Bold',
+    fontSize: 14,
+    color: Colors.neutral[800],
     textAlign: 'center',
-    marginTop: 4,
-    marginBottom: 4,
+    marginBottom: 6,
+    backgroundColor: Colors.neutral[100],
+    paddingVertical: 4,
+    borderRadius: 6,
   },
   productDescription: {
-    fontFamily: 'Inter-Regular',
-    fontSize: 11,
-    color: Colors.neutral[500],
-    marginTop: 2,
-    marginBottom: 6,
-    lineHeight: 14,
+    fontFamily: 'Inter-Medium',
+    fontSize: 12,
+    color: Colors.neutral[700],
+    marginBottom: 8,
+    lineHeight: 16,
+    minHeight: 32,
   },
   totalSales: {
-    fontFamily: 'Inter-SemiBold',
-    fontSize: 12,
-    color: Colors.primary[500],
-    marginTop: 4,
+    fontFamily: 'Inter-Bold',
+    fontSize: 14,
+    color: Colors.primary[600],
     textAlign: 'center',
+    backgroundColor: Colors.primary[50],
+    paddingVertical: 6,
+    paddingHorizontal: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: Colors.primary[200],
   },
 
   ruptureContainer: {
@@ -1234,6 +1120,13 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     borderWidth: 1,
     borderColor: Colors.neutral[200],
+    // Sombra para iOS
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    // Sombra para Android
+    elevation: Platform.OS === 'android' ? 4 : 0,
   },
   ruptureHeader: {
     flexDirection: 'row',
@@ -1395,6 +1288,15 @@ const styles = StyleSheet.create({
     padding: 16,
     marginBottom: 24,
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: Colors.neutral[200],
+    // Sombra para iOS
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    // Sombra para Android
+    elevation: Platform.OS === 'android' ? 6 : 0,
   },
   chartLoadingContainer: {
     minHeight: 180,
@@ -1422,94 +1324,5 @@ const styles = StyleSheet.create({
     color: Colors.neutral[400],
     fontFamily: 'Inter-Regular',
   },
-  feedbackModalContent: {
-    backgroundColor: Colors.white,
-    borderRadius: 16,
-    width: '90%',
-    maxWidth: 500,
-    padding: 20,
-    maxHeight: '80%',
-    marginBottom: 250,
-  },
-  feedbackModalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  feedbackModalTitle: {
-    fontFamily: 'Inter-SemiBold',
-    fontSize: 20,
-    color: Colors.neutral[900],
-  },
-  feedbackForm: {
-    gap: 16,
-  },
-  inputContainer: {
-    gap: 8,
-  },
-  inputLabel: {
-    fontFamily: 'Inter-Medium',
-    fontSize: 16,
-    color: Colors.neutral[900],
-  },
-  textInput: {
-    borderWidth: 1,
-    borderColor: Colors.neutral[300],
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 12,
-    fontSize: 16,
-    fontFamily: 'Inter-Regular',
-    color: Colors.neutral[900],
-    backgroundColor: Colors.white,
-  },
-  textArea: {
-    minHeight: 100,
-    maxHeight: 150,
-  },
-  characterCount: {
-    fontSize: 12,
-    color: Colors.neutral[500],
-    textAlign: 'right',
-    fontFamily: 'Inter-Regular',
-  },
-  buttonContainer: {
-    flexDirection: 'row',
-    gap: 12,
-    marginTop: 8,
-  },
-  cancelButton: {
-    flex: 1,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: Colors.neutral[300],
-    backgroundColor: Colors.white,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  cancelButtonText: {
-    fontFamily: 'Inter-Medium',
-    fontSize: 16,
-    color: Colors.neutral[700],
-  },
-  sendButton: {
-    flex: 1,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    backgroundColor: Colors.primary[500],
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  sendButtonDisabled: {
-    backgroundColor: Colors.neutral[300],
-  },
-  sendButtonText: {
-    fontFamily: 'Inter-SemiBold',
-    fontSize: 16,
-    color: Colors.white,
-  },
+
 });
