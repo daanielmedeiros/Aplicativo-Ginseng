@@ -13,12 +13,13 @@ import {
   FlatList,
   Dimensions,
   Alert,
-  Platform
+  Platform,
+  Animated as RNAnimated
 } from 'react-native';
 import { useColorScheme } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { ChartBar as BarChart2, LogOut, Search, TrendingUp, TrendingDown, Package, Archive, Truck, ChevronRight, Store, User, Bell, MessageSquare } from 'lucide-react-native';
+import { ChartBar as BarChart2, LogOut, Search, TrendingUp, TrendingDown, Package, Archive, Truck, ChevronRight, Store, User, Bell, MessageSquare, UserCircle, ChevronLeft } from 'lucide-react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { LineChart } from 'react-native-chart-kit';
 import Colors from '@/constants/Colors';
@@ -32,6 +33,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from '@/contexts/AuthContext';
 import ProgressBar from '@/components/ProgressBar';
 import ConstellationBackground from '@/components/ConstellationBackground';
+import { useFocusEffect } from '@react-navigation/native';
 
 interface TopSellingProduct {
   code: string;
@@ -65,6 +67,36 @@ interface BulletinResponse {
     totalItems: number;
   };
   items: BulletinItem[];
+}
+
+interface NotaFiscal {
+  chave: string;
+  cnf: string;
+  cnpj_destinatario: string;
+  cnpj_emissor: string;
+  data_emissao: string;
+  nome_emissor: string;
+  numero_fatura: string;
+  serie: string;
+  situacao: string;
+  valor_liquido: string;
+  valor_total_produtos: string;
+}
+
+interface NotasFiscaisResponse {
+  data: NotaFiscal[];
+  total: number;
+  pagina_atual: number;
+  total_paginas: number;
+}
+
+interface RecentActivity {
+  id: string;
+  cnpj: string;
+  dataEmissao: string;
+  previsaoEntrega: string;
+  numeroFatura: string;
+  lojaInfo: string; // Código e nome da loja
 }
 
 interface TokenResponse {
@@ -104,6 +136,93 @@ interface BestSellerResponse {
   }[];
 }
 
+// Mapeamento de CNPJs para informações das lojas
+const cnpjToLojaMap: Record<string, string> = {
+  '08489643000352': '4494 - ESCRITÓRIO MATRIZ',
+  '08489643000314': '3546 - LJ BIG BOMPREÇO GRUTA',
+  '08489643000403': '4560 - LJ MACEIÓ SHOPPING TERREO',
+  '08489643000586': '5699 - LJ MOREIRA LIMA',
+  '08489643001639': '12522 - LJ MACEIÓ SHOPPING EXPANSÃO',
+  '08489643002015': '12817 - LJ SHOPPING PÁTIO',
+  '08489643003097': '12818 - LJ GBARBOSA SERRARIA',
+  '08489643002449': '12820 - LJ ATACADÃO TABULEIRO',
+  '08489643002287': '12823 - LJ PONTA VERDE',
+  '08489643002104': '12824 - QUIOSQUE GBARBOSA TABULEIRO',
+  '08489643002872': '12826 - LJ ASSAÍ MANGABEIRAS',
+  '08489643001710': '12828 - LJ GBARBOSA S.MARIS',
+  '08489643002953': '12829 - LJ JACINTINHO',
+  '08489643002520': '12830 - LJ LIVRAMENTO',
+  '08489643001809': '12838 - LJ RIO LARGO',
+  '08489643003178': '13427 - LJ SHOPPING CIDADE',
+  '08489643003410': '14617 - LJ PARQUE SHOPPING',
+  '08489643003682': '14668 - LJ HIPER ANTARES (LOJA BLOQUEADA)',
+  '08489643002791': '19103 - LJ UNICOMPRA PONTA VERDE',
+  '08489643004140': '20005 - LJ CANDEIAS CIMA',
+  '08489643003844': '20006 - LJ SÃO SEBASTIÃO',
+  '08489643004069': '20009 - LJ CANDEIAS BAIXO',
+  '08489643004220': '20056 - LJ SIMÕES FILHO',
+  '08489643004301': '20057 - LJ CONCEIÇÃO COITÉ',
+  '08489643004492': '20441 - LJ LAGARTO',
+  '08489643007750': '23156 - LJ SHOPPING LAGARTO',
+  '08489643002368': '20858 - QUIOSQUE SUPER GIRO',
+  '08489643005979': '20968 - HIB ITABAIANINHA',
+  '08489643005464': '20969 - HIB MARECHAL DEODORO',
+  '08489643005030': '20970 - VD SÃO SEBASTIÃO',
+  '08489643005545': '20986 - HIB OLINDINA',
+  '08489643005111': '20988 - HIB QUEIMADAS',
+  '08489643005626': '20989 - HIB ENTRE RIOS',
+  '08489643006193': '20991 - HIB CAMPO ALEGRE',
+  '08489643004573': '20992 - ER CONCEIÇÃO COITÉ',
+  '08489643004654': '20993 - ER CANDEIAS',
+  '08489643004735': '20994 - ER SIMÕES FILHO',
+  '08489643006002': '20995 - ER LAGARTO',
+  '08489643005707': '20996 - ER ANTARES',
+  '08489643005898': '20997 - ER PITANGUINHA',
+  '08489643006274': '20998 - CD TABULEIRO',
+  '08489643007670': 'AMG - AMG',
+  '08489643005383': '20999 - HIB ESPLANADA',
+  '08489643005200': '21000 - HIB SANTALUZ',
+  '08489643004905': '21001 - HIB RIO REAL',
+  '08489643004816': '21007 - TÔ QUE TÔ MACEIÓ CENTRO',
+  '08489643006355': '21068 - LJ ATAKAREJO SIMÕES FILHO',
+  '08489643006517': '21277 - LJ GBARBOSA SOCORRO',
+  '08489643006606': '21278 - ER SOCORRO',
+  '08489643006436': '21296 - LJ SHOPPING PRÊMIO SOCORRO',
+  '08489643007165': '21375 - HIB IPIRÁ',
+  '08489643006940': '21381 - LJ CAPIM GROSSO',
+  '08489643007084': '21383 - ER CAPIM GROSSO',
+  '08489643006789': '21495 - HIB BARRA DOS COQUEIROS',
+  '08489643007246': '21624 - MIX MATEUS TRAPICHE',
+  '08489643001981': '21647 - QUIOSQUE CARAJÁS MANGABEIRAS',
+  '08489643007327': '22448 - ER CAMPO ALEGRE',
+  '08489643007599': '22541 - ER RIO LARGO',
+  '20318877000132': '910173 - QDB PARQUE SHOPPING',
+  '20318877000213': '910291 - QDB MACEIO SHOPPING',
+  '08489643007408': 'XXXXX - ER MARECHAL DEODORO',
+  '14378160001821': '23701 - PRAÇA 9 DE NOVEMBRO',
+  '14378160001740': '23702 - GALERIA PANVICON',
+  '14378160001660': '23703 - BARRA DO CHOCA',
+  '14378160001589': '23704 - CONDEUBA',
+  '14378160001317': '23705 - QUISQUE SHOPPING CONQUISTA',
+  '14378160001236': '23706 - ASSAI VITORIA DA CONQUISTA',
+  '14378160001155': '23707 - BAIRRO BRASIL',
+  '14378160001074': '23708 - BARRA DO CHOCA',
+  '14378160000930': '23709 - SHOPPING CONQUISTA SUL',
+  '14378160000850': '23710 - VITORIA DA CONQUISTA',
+  '14378160000507': '23711 - VITORIA DA CONQUISTA',
+  '14378160000698': '23712 - CANDIDO SALES',
+  '14378160000183': '23713 - RUA ZEFERINO CORREIA, 17',
+  '14378160002127': '23665 - BOULEVARD SHOPPING',
+  '08489643009532': '24253 - Matriz Centro',
+  '08489643008994': '24254 - Loja João Dourado',
+  '08489643009451': '24255 - VD Irecê',
+  '08489643009370': '24258 - Atacado',
+  '08489643008803': '24257 - Miguel Calmon',
+  '08489643009702': '24268 - Centro',
+  '08489643009613': '24269 - ER Jacobina',
+  '08489643009966': '20442 - Morro do Chapéu'
+};
+
 export default function HomeScreen() {
   const colorScheme = useColorScheme();
   const { user, signOut } = useAuth();
@@ -136,6 +255,11 @@ export default function HomeScreen() {
   const [historicalData, setHistoricalData] = useState<number[]>([]);
   const [loadingHistorical, setLoadingHistorical] = useState(true);
   const [historicalProgress, setHistoricalProgress] = useState(0);
+  const [recentActivities, setRecentActivities] = useState<RecentActivity[]>([]);
+  const [loadingActivities, setLoadingActivities] = useState(true);
+  const [currentActivityPage, setCurrentActivityPage] = useState(1);
+  const activitiesPerPage = 4;
+  const [pageTransition] = useState(new RNAnimated.Value(0));
 
 
   const avatars: AvatarKey[] = [1, 2, 3, 4, 5, 6, 7, 8, 9];
@@ -194,6 +318,7 @@ export default function HomeScreen() {
       fetchRuptureData();
       fetchCurrentCycleData();
       fetchHistoricalData();
+      fetchRecentActivities();
     }
   }, [loadingToken, token]);
 
@@ -451,23 +576,106 @@ export default function HomeScreen() {
     }
   };
 
-  useEffect(() => {
-    const loadSelectedAvatar = async () => {
-      try {
-        const savedAvatar = await AsyncStorage.getItem('selectedAvatar');
-        if (savedAvatar) {
-          const avatarNumber = parseInt(savedAvatar) as AvatarKey;
-          if (avatarNumber >= 1 && avatarNumber <= 9) {
-            setSelectedAvatar(avatarNumber);
+  const fetchRecentActivities = async () => {
+    try {
+      setLoadingActivities(true);
+      const activities: (RecentActivity & { dataOriginal: Date })[] = [];
+      
+      // Data atual e data limite (15 dias atrás)
+      const hoje = new Date();
+      const dataLimite = new Date();
+      dataLimite.setDate(hoje.getDate() - 15);
+      
+      // Buscar nas primeiras páginas para coletar todas as notas do Calamo PE
+      for (let page = 1; page <= 10; page++) {
+        const response = await fetch(`https://api.grupoginseng.com.br/tabela/fato_notas_entrada?pagina=${page}`);
+        const data: NotasFiscaisResponse = await response.json();
+        
+        // Processar todas as notas
+        data.data.forEach(nota => {
+          // Extrair apenas a data (formato: 2023-12-28)
+          const dataEmissao = nota.data_emissao.split('T')[0];
+          const dataEmissaoObj = new Date(dataEmissao);
+          
+          // Filtrar apenas notas dos últimos 15 dias
+          if (dataEmissaoObj >= dataLimite && dataEmissaoObj <= hoje) {
+            // Calcular previsão de entrega (+10 dias)
+            const previsaoEntregaObj = new Date(dataEmissaoObj);
+            previsaoEntregaObj.setDate(previsaoEntregaObj.getDate() + 10);
+            
+            // Formatar datas para o padrão brasileiro (dd/mm/yyyy)
+            const formatarData = (data: Date) => {
+              return data.toLocaleDateString('pt-BR');
+            };
+            
+            // Buscar informações da loja pelo CNPJ (sem pontuação)
+            const cnpjSemPontuacao = nota.cnpj_destinatario.replace(/[^\d]/g, '');
+            const lojaInfo = cnpjToLojaMap[cnpjSemPontuacao] || nota.cnpj_destinatario;
+            
+            // Log temporário para debug
+            if (!cnpjToLojaMap[cnpjSemPontuacao]) {
+              console.log('🔍 CNPJ não encontrado no mapeamento:', {
+                original: nota.cnpj_destinatario,
+                semPontuacao: cnpjSemPontuacao,
+                numeroFatura: nota.numero_fatura
+              });
+            }
+            
+            activities.push({
+              id: nota.chave,
+              cnpj: nota.cnpj_destinatario,
+              dataEmissao: formatarData(dataEmissaoObj),
+              previsaoEntrega: formatarData(previsaoEntregaObj),
+              numeroFatura: nota.numero_fatura,
+              lojaInfo: lojaInfo,
+              dataOriginal: dataEmissaoObj // Mantém a data original para ordenação
+            });
           }
-        }
-      } catch (error) {
-        console.error('Erro ao carregar avatar:', error);
+        });
+        
+        // Se chegou ao final das páginas, parar
+        if (page >= data.total_paginas) break;
       }
-    };
+      
+      // Ordenar por data mais recente primeiro
+      activities.sort((a, b) => b.dataOriginal.getTime() - a.dataOriginal.getTime());
+      
+      // Remover a propriedade dataOriginal
+      const sortedActivities = activities.map(({ dataOriginal, ...activity }) => activity);
+      
+      setRecentActivities(sortedActivities);
+      
+    } catch (error) {
+      console.error('Erro ao buscar atividades recentes:', error);
+    } finally {
+      setLoadingActivities(false);
+    }
+  };
 
+  const loadSelectedAvatar = async () => {
+    try {
+      const savedAvatar = await AsyncStorage.getItem('selectedAvatar');
+      if (savedAvatar) {
+        const avatarNumber = parseInt(savedAvatar) as AvatarKey;
+        if (avatarNumber >= 1 && avatarNumber <= 9) {
+          setSelectedAvatar(avatarNumber);
+        }
+      }
+    } catch (error) {
+      console.error('Erro ao carregar avatar:', error);
+    }
+  };
+
+  useEffect(() => {
     loadSelectedAvatar();
   }, []);
+
+  // Recarregar avatar quando a tela ganhar foco
+  useFocusEffect(
+    React.useCallback(() => {
+      loadSelectedAvatar();
+    }, [])
+  );
 
   const handleAvatarSelect = async (avatarNumber: AvatarKey) => {
     try {
@@ -476,6 +684,57 @@ export default function HomeScreen() {
       setShowAvatarModal(false);
     } catch (error) {
       console.error('Erro ao salvar avatar:', error);
+    }
+  };
+
+  // Funções de paginação
+  const totalActivityPages = Math.ceil(recentActivities.length / activitiesPerPage);
+  const startIndex = (currentActivityPage - 1) * activitiesPerPage;
+  const endIndex = startIndex + activitiesPerPage;
+  const currentActivities = recentActivities.slice(startIndex, endIndex);
+
+  const animatePageTransition = (direction: 'left' | 'right', callback: () => void) => {
+    // Animar saída
+    RNAnimated.timing(pageTransition, {
+      toValue: direction === 'left' ? -300 : 300,
+      duration: 200,
+      useNativeDriver: true,
+    }).start(() => {
+      // Resetar posição sem animação
+      pageTransition.setValue(direction === 'left' ? 300 : -300);
+      // Executar mudança de página
+      callback();
+      // Animar entrada
+      RNAnimated.timing(pageTransition, {
+        toValue: 0,
+        duration: 200,
+        useNativeDriver: true,
+      }).start();
+    });
+  };
+
+  const goToNextActivityPage = () => {
+    if (currentActivityPage < totalActivityPages) {
+      animatePageTransition('left', () => {
+        setCurrentActivityPage(currentActivityPage + 1);
+      });
+    }
+  };
+
+  const goToPreviousActivityPage = () => {
+    if (currentActivityPage > 1) {
+      animatePageTransition('right', () => {
+        setCurrentActivityPage(currentActivityPage - 1);
+      });
+    }
+  };
+
+  const goToActivityPage = (page: number) => {
+    if (page >= 1 && page <= totalActivityPages) {
+      const direction = page > currentActivityPage ? 'left' : 'right';
+      animatePageTransition(direction, () => {
+        setCurrentActivityPage(page);
+      });
     }
   };
 
@@ -523,6 +782,12 @@ export default function HomeScreen() {
           </View>
         </View>
         <View style={styles.headerRight}>
+          <TouchableOpacity 
+            style={styles.iconButton} 
+            onPress={() => router.push('/profile')}
+          >
+            <UserCircle size={22} color={Colors.white} />
+          </TouchableOpacity>
           <TouchableOpacity 
             style={styles.iconButton} 
             onPress={() => router.push('/feedback')}
@@ -730,179 +995,97 @@ export default function HomeScreen() {
 
         {/* Atividades recentes - Terceiro */}
         <Animated.View entering={FadeInDown.duration(400).delay(300)}>
-          <Text style={styles.sectionTitle}>Atividades recentes</Text>
+          <View style={styles.activitiesHeader}>
+            <Text style={styles.sectionTitle}>Últimos Faturamentos</Text>
+            {!loadingActivities && recentActivities.length > 0 && (
+              <Text style={styles.activitiesCount}>
+                {recentActivities.length} atividades
+              </Text>
+            )}
+          </View>
+          
           <View style={styles.activitiesContainer}>
-            <TouchableOpacity style={styles.activityCard}>
-              <View style={[styles.activityIconContainer, { backgroundColor: Colors.primary[50] }]}>
-                <Package size={20} color={Colors.primary[500]} />
+            {loadingActivities ? (
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator size="large" color={Colors.primary[500]} />
               </View>
-              <View style={styles.activityInfo}>
-                <Text style={styles.activityTitle}>Transferência Incluída PDV 20998</Text>
-                <Text style={styles.activityDescription}>84 produtos adicionados</Text>
-              </View>
-              <Text style={styles.activityTime}>13:45</Text>
-            </TouchableOpacity>
-            
-            <TouchableOpacity style={styles.activityCard}>
-              <View style={[styles.activityIconContainer, { backgroundColor: Colors.info[50] }]}>
-                <Archive size={20} color={Colors.info[500]} />
-              </View>
-              <View style={styles.activityInfo}>
-                <Text style={styles.activityTitle}>Nota Faturada PDV 20998</Text>
-                <Text style={styles.activityDescription}>Previsão de entrega 22/05/2025</Text>
-              </View>
-              <Text style={styles.activityTime}>09:30</Text>
-            </TouchableOpacity>
-          </View>
-        </Animated.View>
-
-        {/* Gráfico Histórico - Quarto */}
-        <Animated.View entering={FadeInDown.duration(400).delay(400)}>
-          <Text style={styles.sectionTitle}>Histórico Ruptura - Causa Franqueado</Text>
-          <View style={styles.chartContainer}>
-            {loadingHistorical ? (
-              <View style={styles.chartLoadingContainer}>
-                <ProgressBar 
-                  progress={historicalProgress}
-                  loadingText="Carregando Histórico de Ruptura..."
-                />
-              </View>
-            ) : (() => {
-              // Filtrar apenas dados válidos (> 0.1%)
-              const cycles = ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12', '13', '14', '15', '16', '17'];
-              const filteredData: number[] = [];
-              const filteredLabels: string[] = [];
-              
-              historicalData.forEach((value, index) => {
-                if (value > 0.1) {
-                  filteredData.push(value);
-                  filteredLabels.push(cycles[index]);
-                }
-              });
-
-              // Se não há dados válidos, mostrar mensagem
-              if (filteredData.length === 0) {
-                return (
-                  <View style={styles.chartLoadingContainer}>
-                    <Text style={styles.chartLoadingText}>Nenhum dado de ruptura disponível</Text>
-                  </View>
-                );
-              }
-
-              return (
-                <LineChart
-                  data={{
-                    labels: filteredLabels,
-                    datasets: [
-                      {
-                        data: filteredData,
-                        color: (opacity = 1) => `rgba(4, 80, 107, ${opacity})`, // Cor da linha
-                        strokeWidth: 3, // Espessura da linha
-                      },
-                    ],
-                    legend: ['% Ruptura Causa Franqueado'],
-                  }}
-                  width={Dimensions.get('window').width * 0.8} // 80% da largura da tela
-                  height={180} // Altura reduzida
-                  yAxisSuffix="%"
-                  yAxisInterval={1} // Intervalos no eixo Y
-                  chartConfig={{
-                    backgroundColor: Colors.white,
-                    backgroundGradientFrom: Colors.white,
-                    backgroundGradientTo: Colors.white,
-                    decimalPlaces: 1, // Casas decimais
-                    color: (opacity = 1) => `rgba(4, 80, 107, ${opacity})`,
-                    labelColor: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
-                    style: {
-                      borderRadius: 16,
-                    },
-                    propsForDots: {
-                      r: '6',
-                      strokeWidth: '2',
-                      stroke: '#04506B',
-                      fill: '#04506B',
-                    },
-                    propsForBackgroundLines: {
-                      strokeDasharray: '', // Linhas sólidas
-                      stroke: Colors.neutral[200],
-                    },
-                  }}
-                  bezier // Curva suave
-                  style={styles.chart}
-                />
-              );
-            })()}
-          </View>
-        </Animated.View>
-
-        {/* Resumo Ruptura - Quinto */}
-        <Animated.View entering={FadeInDown.duration(400).delay(500)}>
-          <Text style={styles.sectionTitle}>Resumo Ruptura</Text>
-          <View style={styles.cardsContainer}>
-            <View style={[styles.ruptureContainer, { backgroundColor: Colors.neutral[50] }]}>
-              <View style={styles.ruptureHeader}>
-                <Text style={styles.ruptureTitle}>% Ruptura Causa Franqueado (IAF)</Text>
-                <View style={[styles.rupturePeriod, { backgroundColor: Colors.neutral[100] }]}>
-                  <Text style={[styles.rupturePeriodText, { color: Colors.neutral[700] }]}>Período 2025</Text>
-                </View>
-              </View>
-              <View style={styles.ruptureValues}>
-                {loadingRupture ? (
-                  <Text style={styles.ruptureValue}>Carregando...</Text>
-                ) : (
-                  <>
-                    <View style={styles.ruptureValueRow}>
-                      <Text style={styles.ruptureValueLabel}>Ruptura Total:</Text>
-                      <AnimatedPercentage value={ruptureData?.totalDisruptionPercentage} delay={0} />
-                    </View>
-                    <View style={[styles.ruptureValueRow, styles.highlightedRow]}>
-                      <Text style={[styles.ruptureValueLabel, styles.highlightedText]}>Causa Franqueado:</Text>
-                      <AnimatedPercentage value={ruptureData?.franchiseDisruptionPercentage} delay={200} />
-                    </View>
-                    <View style={styles.ruptureValueRow}>
-                      <Text style={styles.ruptureValueLabel}>Causa Industria:</Text>
-                      <AnimatedPercentage value={ruptureData?.industryDisruptionPercentage} delay={400} />
-                    </View>
-                  </>
-                )}
-              </View>
-            </View>
-
-            <View style={[styles.ruptureContainer, { backgroundColor: Colors.neutral[50] }]}>
-              <View style={styles.ruptureHeader}>
-                <Text style={styles.ruptureTitle}>% Ruptura Causa Franqueado (IAF)</Text>
-                <TouchableOpacity 
-                  style={[styles.rupturePeriod, { backgroundColor: Colors.neutral[100] }]}
-                  onPress={() => setShowCycleSelector(true)}
+            ) : (
+              <>
+                <RNAnimated.View 
+                  style={[
+                    styles.activitiesAnimatedContainer,
+                    {
+                      transform: [{ translateX: pageTransition }]
+                    }
+                  ]}
                 >
-                  <Text style={[styles.rupturePeriodText, { color: Colors.neutral[700] }]}>
-                    Ciclo {selectedCycle} ▼
-                  </Text>
-                </TouchableOpacity>
-              </View>
-              <View style={styles.ruptureValues}>
-                {loadingCurrentCycle ? (
-                  <Text style={styles.ruptureValue}>Carregando...</Text>
-                ) : (
-                  <>
-                    <View style={styles.ruptureValueRow}>
-                      <Text style={styles.ruptureValueLabel}>Ruptura Total:</Text>
-                      <AnimatedPercentage value={currentCycleData?.totalDisruptionPercentage} delay={600} />
+                  {currentActivities.map((activity, index) => (
+                    <TouchableOpacity key={activity.id} style={styles.activityCard}>
+                      <View style={[styles.activityIconContainer, { backgroundColor: Colors.success[50] }]}>
+                        <Truck size={20} color={Colors.success[500]} />
+                      </View>
+                      <View style={styles.activityInfo}>
+                        <Text style={styles.activityTitle}>
+                          Faturamento realizado para :
+                        </Text>
+                        <Text style={styles.activityLojaName}>
+                          {activity.lojaInfo}
+                        </Text>
+                        <Text style={styles.activityDescription}>
+                          Data Faturamento: {activity.dataEmissao}
+                        </Text>
+                        <Text style={styles.activityDescription}>
+                          Previsão de entrega: {activity.previsaoEntrega}
+                        </Text>
+                      </View>
+                      <Text style={styles.activityTime}>NF {activity.numeroFatura}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </RNAnimated.View>
+
+                {/* Paginação */}
+                {totalActivityPages > 1 && (
+                  <View style={styles.paginationContainer}>
+                    <TouchableOpacity 
+                      style={[
+                        styles.paginationButton, 
+                        currentActivityPage === 1 && styles.paginationButtonDisabled
+                      ]}
+                      onPress={goToPreviousActivityPage}
+                      disabled={currentActivityPage === 1}
+                    >
+                      <ChevronLeft size={16} color={currentActivityPage === 1 ? Colors.neutral[400] : Colors.primary[500]} />
+                    </TouchableOpacity>
+
+                    <View style={styles.paginationInfo}>
+                      <Text style={styles.paginationText}>
+                        {currentActivityPage} de {totalActivityPages}
+                      </Text>
+                      <Text style={styles.paginationSubtext}>
+                        {startIndex + 1}-{Math.min(endIndex, recentActivities.length)} de {recentActivities.length}
+                      </Text>
                     </View>
-                    <View style={[styles.ruptureValueRow, styles.highlightedRow]}>
-                      <Text style={[styles.ruptureValueLabel, styles.highlightedText]}>Causa Franqueado:</Text>
-                      <AnimatedPercentage value={currentCycleData?.franchiseDisruptionPercentage} delay={800} />
-                    </View>
-                    <View style={styles.ruptureValueRow}>
-                      <Text style={styles.ruptureValueLabel}>Causa Industria:</Text>
-                      <AnimatedPercentage value={currentCycleData?.industryDisruptionPercentage} delay={1000} />
-                    </View>
-                  </>
+
+                    <TouchableOpacity 
+                      style={[
+                        styles.paginationButton, 
+                        currentActivityPage === totalActivityPages && styles.paginationButtonDisabled
+                      ]}
+                      onPress={goToNextActivityPage}
+                      disabled={currentActivityPage === totalActivityPages}
+                    >
+                      <ChevronRight size={16} color={currentActivityPage === totalActivityPages ? Colors.neutral[400] : Colors.primary[500]} />
+                    </TouchableOpacity>
+                  </View>
                 )}
-              </View>
-            </View>
+              </>
+            )}
           </View>
         </Animated.View>
+
+
+
+
       </ScrollView>
     </SafeAreaView>
   );
@@ -928,13 +1111,13 @@ const styles = StyleSheet.create({
   },
   greeting: {
     fontFamily: 'Inter-SemiBold',
-    fontSize: 16,
+    fontSize: 12,
     color: Colors.white,
     fontWeight: 'bold',
   },
   date: {
     fontFamily: 'Inter-Regular',
-    fontSize: 12,
+    fontSize: 10,
     color: Colors.neutral[200],
     marginTop: 4,
   },
@@ -987,6 +1170,9 @@ const styles = StyleSheet.create({
   activitiesContainer: {
     marginBottom: 8,
   },
+  activitiesAnimatedContainer: {
+    width: '100%',
+  },
   activityCard: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1013,6 +1199,13 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: Colors.neutral[900],
   },
+  activityLojaName: {
+    fontFamily: 'Inter-SemiBold',
+    fontSize: 11,
+    color: Colors.primary[600],
+    marginTop: 2,
+    marginBottom: 4,
+  },
   activityDescription: {
     fontFamily: 'Inter-Regular',
     fontSize: 10,
@@ -1028,7 +1221,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginTop: 24,
+    marginTop: 8,
     marginBottom: 16,
   },
   slideButton: {
@@ -1319,6 +1512,62 @@ const styles = StyleSheet.create({
   disabledCycleText: {
     color: Colors.neutral[400],
     fontFamily: 'Inter-Regular',
+  },
+  activitiesHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 24,
+    marginBottom: 16,
+  },
+  activitiesCount: {
+    fontFamily: 'Inter-Medium',
+    fontSize: 12,
+    color: Colors.neutral[500],
+    backgroundColor: Colors.neutral[100],
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  paginationContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    backgroundColor: Colors.white,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Colors.neutral[200],
+  },
+  paginationButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    backgroundColor: Colors.primary[50],
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: Colors.primary[200],
+  },
+  paginationButtonDisabled: {
+    backgroundColor: Colors.neutral[50],
+    borderColor: Colors.neutral[200],
+  },
+  paginationInfo: {
+    alignItems: 'center',
+  },
+  paginationText: {
+    fontFamily: 'Inter-SemiBold',
+    fontSize: 14,
+    color: Colors.neutral[900],
+  },
+  paginationSubtext: {
+    fontFamily: 'Inter-Regular',
+    fontSize: 12,
+    color: Colors.neutral[500],
+    marginTop: 2,
   },
 
 });

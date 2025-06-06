@@ -1,16 +1,16 @@
 import React from 'react';
 import { Tabs } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { DoorOpen, Chrome as Home, Package, Plus, Settings, Store } from 'lucide-react-native';
+import { DoorOpen, Chrome as Home, Package, Plus, Settings, Store, BarChart3 } from 'lucide-react-native';
 import Colors from '@/constants/Colors';
-import { View } from 'react-native';
+import { View, TouchableOpacity, Platform } from 'react-native';
 
 export default function TabLayout() {
   const insets = useSafeAreaInsets();
   
   return (
     <Tabs
-      screenOptions={{
+      screenOptions={({ route }) => ({
         headerShown: false,
         tabBarActiveTintColor: '#04506B',
         tabBarInactiveTintColor: Colors.neutral[400],
@@ -28,44 +28,32 @@ export default function TabLayout() {
           marginTop: 2,
           marginBottom: 4,
         },
-      }}>
+        tabBarIconStyle: {
+          marginBottom: 0,
+        },
+        animation: 'shift',
+        tabBarButton: (props) => {
+          const { children, style, onPress, delayLongPress, ...otherProps } = props;
+          return (
+            <TouchableOpacity 
+              style={style} 
+              onPress={onPress}
+              activeOpacity={1}
+              delayLongPress={delayLongPress || undefined}
+              delayPressIn={0}
+              delayPressOut={0}
+            >
+              {children}
+            </TouchableOpacity>
+          );
+        },
+      })}>
       <Tabs.Screen
         name="index"
         options={{
           title: 'Início',
           tabBarIcon: ({ focused, color, size }) => (
-            <View style={{ alignItems: 'center', justifyContent: 'center' }}>
-              {focused && (
-                <View
-                  style={{
-                    position: 'absolute',
-                    width: 40,
-                    height: 40,
-                    borderRadius: 20,
-                    backgroundColor: 'rgba(4, 80, 107, 0.1)',
-                    bottom: -8,
-                  }}
-                />
-              )}
-              <View style={{ marginTop: 4 }}>
-                {focused ? (
-                  <View style={{ 
-                    width: 24, 
-                    height: 24, 
-                    borderRadius: 12, 
-                    backgroundColor: Colors.white,
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    borderWidth: 2,
-                    borderColor: '#04506B'
-                  }}>
-                    <Home size={size - 4} color={color} />
-                  </View>
-                ) : (
-                  <Home size={size} color={color} />
-                )}
-              </View>
-            </View>
+            <Home size={size} color={color} />
           ),
         }}
       />
@@ -74,38 +62,16 @@ export default function TabLayout() {
         options={{
           title: 'Estoque',
           tabBarIcon: ({ focused, color, size }) => (
-            <View style={{ alignItems: 'center', justifyContent: 'center' }}>
-              {focused && (
-                <View
-                  style={{
-                    position: 'absolute',
-                    width: 40,
-                    height: 40,
-                    borderRadius: 20,
-                    backgroundColor: 'rgba(4, 80, 107, 0.1)',
-                    bottom: -8,
-                  }}
-                />
-              )}
-              <View style={{ marginTop: 4 }}>
-                {focused ? (
-                  <View style={{ 
-                    width: 24, 
-                    height: 24, 
-                    borderRadius: 12, 
-                    backgroundColor: Colors.white,
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    borderWidth: 2,
-                    borderColor: '#04506B'
-                  }}>
-                    <Package size={size - 4} color={color} />
-                  </View>
-                ) : (
-                  <Package size={size} color={color} />
-                )}
-              </View>
-            </View>
+            <Package size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="supplies"
+        options={{
+          title: 'Suprimentos',
+          tabBarIcon: ({ focused, color, size }) => (
+            <BarChart3 size={size} color={color} />
           ),
         }}
       />
@@ -114,38 +80,7 @@ export default function TabLayout() {
         options={{
           title: 'Salas',
           tabBarIcon: ({ focused, color, size }) => (
-            <View style={{ alignItems: 'center', justifyContent: 'center' }}>
-              {focused && (
-                <View
-                  style={{
-                    position: 'absolute',
-                    width: 40,
-                    height: 40,
-                    borderRadius: 20,
-                    backgroundColor: 'rgba(4, 80, 107, 0.1)',
-                    bottom: -8,
-                  }}
-                />
-              )}
-              <View style={{ marginTop: 4 }}>
-                {focused ? (
-                  <View style={{ 
-                    width: 24, 
-                    height: 24, 
-                    borderRadius: 12, 
-                    backgroundColor: Colors.white,
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    borderWidth: 2,
-                    borderColor: '#04506B'
-                  }}>
-                    <DoorOpen size={size - 4} color={color} />
-                  </View>
-                ) : (
-                  <DoorOpen size={size} color={color} />
-                )}
-              </View>
-            </View>
+            <DoorOpen size={size} color={color} />
           ),
         }}
       />

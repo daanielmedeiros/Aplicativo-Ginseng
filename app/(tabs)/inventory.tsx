@@ -195,22 +195,56 @@ export default function InventoryScreen() {
       let totalPages = 1;
 
       // Primeira requisição para obter o total de páginas
-      const initialResponse = await fetch(`https://api.grupoginseng.com.br/tabela/draft/${pdvCode}?page=1`);
+      console.log(`🔍 Iniciando carregamento para PDV: ${pdvCode}`);
+      const initialResponse = await fetch(`https://api.grupoginseng.com.br/tabela/draft/${pdvCode}?pagina=1`);
       const initialData: InventoryResponse = await initialResponse.json();
       totalPages = initialData.total_paginas;
+      
+      console.log(`📄 Total de páginas encontradas: ${totalPages}`);
+      console.log(`📦 Produtos na primeira página: ${initialData.data.length}`);
 
       // Adiciona os produtos da primeira página
       allProducts = [...initialData.data];
 
       // Carrega as páginas restantes
       for (let page = 2; page <= totalPages; page++) {
-        const response = await fetch(`https://api.grupoginseng.com.br/tabela/draft/${pdvCode}?page=${page}`);
-        const data: InventoryResponse = await response.json();
-        allProducts = [...allProducts, ...data.data];
+        try {
+          console.log(`⏳ Carregando página ${page} de ${totalPages}...`);
+          const response = await fetch(`https://api.grupoginseng.com.br/tabela/draft/${pdvCode}?pagina=${page}`);
+          
+          if (!response.ok) {
+            console.warn(`⚠️ Erro HTTP na página ${page}: ${response.status}`);
+            continue;
+          }
+          
+          const data: InventoryResponse = await response.json();
+          console.log(`📦 Produtos na página ${page}: ${data.data.length}`);
+          
+          if (data.data && data.data.length > 0) {
+            allProducts = [...allProducts, ...data.data];
+          } else {
+            console.warn(`⚠️ Página ${page} retornou vazia ou sem dados`);
+          }
+          
+          // Pequeno delay para não sobrecarregar a API
+          await new Promise(resolve => setTimeout(resolve, 50));
+        } catch (error) {
+          console.error(`❌ Erro ao carregar página ${page}:`, error);
+          // Continua para a próxima página mesmo se uma falhar
+          continue;
+        }
+      }
+      
+      console.log(`✅ Carregamento completo! Total de produtos coletados: ${allProducts.length}`);
+      
+      // Verificação adicional: se temos o total esperado da primeira página
+      if (initialData.total && allProducts.length < initialData.total * 0.8) {
+        console.warn(`⚠️ ATENÇÃO: Produtos coletados (${allProducts.length}) parecem estar abaixo do esperado. Total reportado: ${initialData.total}`);
       }
       
       // Remove duplicatas baseado no código do produto
       const uniqueProducts = Array.from(new Map(allProducts.map(item => [item.code, item])).values());
+      console.log(`🔄 Após remoção de duplicatas: ${uniqueProducts.length} produtos únicos`);
       
       const mappedData = uniqueProducts.map((item: any) => {
         return {

@@ -13,6 +13,9 @@ interface User {
   name: string;
   email: string;
   picture?: string;
+  jobTitle?: string;
+  givenName?: string;
+  surname?: string;
 }
 
 interface AuthContextType {
@@ -31,8 +34,8 @@ const getRedirectUri = () => {
     return 'http://localhost:8081/';
   } else {
     // Para mobile (iOS e Android), usar sempre o scheme customizado
-    //return 'com.grupoginseng.app://auth';
-    return 'exp://10.77.77.114:8081';
+    return 'com.grupoginseng.app://auth';
+    //return 'exp://192.168.0.15:8081';
   }
 };
 
@@ -163,6 +166,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
         email: userData.mail || userData.userPrincipalName,
         picture: userData.photo?.['@odata.mediaContentType'] ? 
           `https://graph.microsoft.com/v1.0/me/photo/$value` : undefined,
+        // Salvando dados adicionais para perfil
+        jobTitle: userData.jobTitle,
+        givenName: userData.givenName,
+        surname: userData.surname,
       };
     } catch (error) {
       console.error('Erro ao buscar informações do usuário:', error);

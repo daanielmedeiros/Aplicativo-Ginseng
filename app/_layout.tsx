@@ -39,9 +39,21 @@ function RootLayoutNav() {
   }
 
   return (
-    <Stack screenOptions={{ headerShown: false }}>
+    <Stack 
+      screenOptions={{ 
+        headerShown: false,
+        animation: 'slide_from_right',
+        animationDuration: 300,
+      }}
+    >
       <Stack.Screen name="(auth)" options={{ headerShown: false }} />
-      <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+      <Stack.Screen 
+        name="(tabs)" 
+        options={{ 
+          headerShown: false,
+          animation: 'slide_from_right',
+        }} 
+      />
       <Stack.Screen name="auth" options={{ headerShown: false }} />
       <Stack.Screen name="+not-found" options={{ title: 'Oops!' }} />
     </Stack>
