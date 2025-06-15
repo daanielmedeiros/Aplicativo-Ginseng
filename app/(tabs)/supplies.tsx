@@ -18,6 +18,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { LineChart } from 'react-native-chart-kit';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Settings } from 'lucide-react-native';
 import Colors from '@/constants/Colors';
 import ProgressBar from '@/components/ProgressBar';
 
@@ -46,6 +47,12 @@ interface CachedRuptureData {
   historicalData: number[];
   timestamp: number;
   selectedCycle: string;
+}
+
+interface CoverageData {
+  cobertura: number;
+  total_ddv_previsto: number;
+  total_estoque_atual: number;
 }
 
 export default function SuppliesScreen() {
@@ -131,6 +138,8 @@ export default function SuppliesScreen() {
   const [loadingToken, setLoadingToken] = useState(true);
   const [token, setToken] = useState<string | null>(null);
   const [dataSource, setDataSource] = useState<'cache' | 'api' | null>(null);
+  const [coverageData, setCoverageData] = useState<CoverageData | null>(null);
+  const [loadingCoverage, setLoadingCoverage] = useState(true);
 
   const cycles = ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12', '13', '14', '15', '16', '17'];
 
@@ -149,6 +158,26 @@ export default function SuppliesScreen() {
       console.error('Erro ao carregar token:', error);
     } finally {
       setLoadingToken(false);
+    }
+  };
+
+  const fetchCoverageData = async () => {
+    try {
+      setLoadingCoverage(true);
+      
+      const response = await fetch('https://api.grupoginseng.com.br/cobertura', {
+        headers: {
+          'Authorization': `Bearer ${bearerToken}`
+        }
+      });
+      
+      const data = await response.json();
+      setCoverageData(data);
+
+    } catch (error) {
+      console.error('Erro ao buscar dados de cobertura:', error);
+    } finally {
+      setLoadingCoverage(false);
     }
   };
 
@@ -334,6 +363,7 @@ export default function SuppliesScreen() {
   useEffect(() => {
     if (!loadingToken && token) {
       loadRuptureData();
+      fetchCoverageData();
     }
   }, [loadingToken, token]);
 
@@ -415,8 +445,54 @@ export default function SuppliesScreen() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Gráfico Histórico */}
+        {/* Cobertura */}
         <Animated.View entering={FadeInDown.duration(400).delay(100)}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Cobertura de Estoque</Text>
+            <View style={styles.adjustmentContainer}>
+              <Text style={styles.adjustmentText}>Em Desenvolvimento</Text>
+              <Settings size={14} color={Colors.neutral[500]} />
+            </View>
+          </View>
+          <View style={[styles.ruptureContainer, { backgroundColor: Colors.neutral[50] }]}>
+            {loadingCoverage ? (
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator size="small" color={Colors.primary[500]} />
+                <Text style={styles.ruptureValue}>Calculando cobertura...</Text>
+              </View>
+            ) : coverageData ? (
+              <>
+                <View style={styles.coverageRow}>
+                  <Text style={styles.coverageLabel}>Total Estoque:</Text>
+                  <Text style={styles.coverageValue}>
+                    {new Intl.NumberFormat('pt-BR', {
+                      maximumFractionDigits: 0
+                    }).format(coverageData.total_estoque_atual)} Produtos
+                  </Text>
+                </View>
+                <View style={styles.coverageRow}>
+                  <Text style={styles.coverageLabel}>DDV Previsto:</Text>
+                  <Text style={styles.coverageValue}>
+                    {new Intl.NumberFormat('pt-BR', {
+                      maximumFractionDigits: 0
+                    }).format(coverageData.total_ddv_previsto)} itens/Dia
+                  </Text>
+                </View>
+                <View style={[styles.coverageRow, styles.highlightedRow]}>
+                  <Text style={[styles.coverageLabel, styles.highlightedText]}>Cobertura:</Text>
+                  <Text style={[styles.coverageValue, styles.highlightedText]}>
+                    {Math.round(coverageData.cobertura)} dias
+                  </Text>
+                </View>
+              </>
+            ) : (
+              <Text style={styles.errorText}>Erro ao carregar dados de cobertura</Text>
+            )}
+          </View>
+        </Animated.View>
+
+        {/* Gráfico Histórico */}
+        <Animated.View entering={FadeInDown.duration(400).delay(200)} style={styles.sectionContainer}>
           <Text style={styles.sectionTitle}>Histórico Ruptura - Causa Franqueado</Text>
           <View style={styles.chartContainer}>
             {loadingHistorical ? (
@@ -843,5 +919,52 @@ const styles = StyleSheet.create({
   },
   dataSourceText: {
     fontSize: 16,
+  },
+  sectionContainer: {
+    marginTop: 24,
+  },
+  coverageRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 8,
+  },
+  coverageLabel: {
+    fontFamily: 'Inter-Medium',
+    fontSize: 12,
+    color: Colors.neutral[600],
+  },
+  coverageValue: {
+    fontFamily: 'Inter-SemiBold',
+    fontSize: 12,
+    color: Colors.neutral[900],
+  },
+  errorText: {
+    fontFamily: 'Inter-Medium',
+    fontSize: 12,
+    color: Colors.error[500],
+    textAlign: 'center',
+    padding: 16,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+    marginTop: 8,
+  },
+  adjustmentContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginLeft: 12,
+    backgroundColor: Colors.neutral[100],
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
+  },
+  adjustmentText: {
+    fontFamily: 'Inter-Medium',
+    fontSize: 12,
+    color: Colors.neutral[500],
+    marginRight: 4,
   },
 }); 
