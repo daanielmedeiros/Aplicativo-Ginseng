@@ -1275,10 +1275,15 @@ export default function HomeScreen() {
                     style={styles.topSellingItem}
                     onPress={() => handleProductPress(product)}
                   >
-                  <CachedImage 
-                    uri={product.image}
-                    style={styles.topSellingImage}
-                  />
+                    {index === 0 && topSellingProducts[1] && product.totalSales >= (topSellingProducts[1].totalSales * 2) && (
+                      <View style={styles.hotIndicator}>
+                        <Text style={styles.hotIndicatorText}>🔥 Bombando</Text>
+                      </View>
+                    )}
+                    <CachedImage 
+                      uri={product.image}
+                      style={styles.topSellingImage}
+                    />
                                       <View style={styles.productInfo}>
                       <Text style={styles.productCode}>{product.code}</Text>
                       <Text style={styles.productDescription} numberOfLines={2}>
@@ -1674,6 +1679,23 @@ const styles = StyleSheet.create({
     padding: 12, // 25% menor (16 * 0.75 = 12)
     borderWidth: 1,
     borderColor: Colors.neutral[200],
+  },
+  hotIndicator: {
+    position: 'absolute',
+    top: 4,
+    left: 4,
+    backgroundColor: Colors.warning[500],
+    borderRadius: 12,
+    padding: 4,
+    zIndex: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+  },
+  hotIndicatorText: {
+    color: Colors.white,
+    fontSize: 8,
+    fontFamily: 'Inter-Bold',
   },
   topSellingImage: {
     width: '100%',

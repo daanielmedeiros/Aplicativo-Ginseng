@@ -20,7 +20,7 @@ export default function ConstellationBackground() {
   useEffect(() => {
     const generatePoints = () => {
       const newPoints: Point[] = [];
-      const numberOfPoints = 18;
+      const numberOfPoints = 20;
 
       for (let i = 0; i < numberOfPoints; i++) {
         newPoints.push({

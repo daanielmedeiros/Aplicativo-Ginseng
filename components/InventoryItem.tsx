@@ -54,10 +54,9 @@ export function InventoryItem({ item, expanded = false, onPress }: InventoryItem
         <View style={styles.imageContainer}>
           <CachedImage uri={item.image} style={styles.productImage} />
           {item.promotions && item.promotions.length > 0 && (
-            <Image 
-              source={require('@/assets/images/promo.gif')} 
-              style={styles.promoGif}
-            />
+            <View style={styles.discountFlag}>
+              <Text style={styles.discountText}>{item.promotions[0].discountPercent}</Text>
+            </View>
           )}
         </View>
         
@@ -173,13 +172,25 @@ const styles = StyleSheet.create({
     height: 70,
     borderRadius: 8,
   },
-  promoGif: {
+  discountFlag: {
     position: 'absolute',
-    top: -5,
-    left: -10,
-    width: 20,
-    height: 20,
+    top: -6,
+    left: -6,
+    backgroundColor: Colors.success[500],
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+    borderRadius: 4,
     zIndex: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
+    elevation: 3,
+  },
+  discountText: {
+    color: Colors.white,
+    fontSize: 8,
+    fontFamily: 'Inter-Bold',
   },
   infoContainer: {
     flex: 1,
