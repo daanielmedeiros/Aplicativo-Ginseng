@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { 
   View, 
   Text, 
@@ -19,7 +19,7 @@ import {
 import { useColorScheme } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { ChartBar as BarChart2, LogOut, Search, TrendingUp, TrendingDown, Package, Archive, Truck, ChevronRight, Store, User, Bell, MessageSquare, UserCircle, ChevronLeft } from 'lucide-react-native';
+import { ChartBar as BarChart2, LogOut, Search, TrendingUp, TrendingDown, Package, Archive, Truck, ChevronRight, Store, User, Bell, MessageSquare, UserCircle, ChevronLeft, Settings, ShieldAlert } from 'lucide-react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { LineChart } from 'react-native-chart-kit';
 import Colors from '@/constants/Colors';
@@ -41,6 +41,9 @@ interface TopSellingProduct {
   image: string;
   totalSales: number;
   position: number;
+  promotions: { description: string; discountPercent: string }[];
+  storePromotions: { description: string; discountPercent: string }[];
+  launch: string;
 }
 
 interface StorePerformance {
@@ -134,6 +137,14 @@ interface BestSellerResponse {
     descricao: string;
     vendas: number;
   }[];
+}
+
+interface InventoryItemType {
+  code: string;
+  description: string;
+  promotions_description?: string;
+  promotions_discountpercent?: any;
+  launch?: string;
 }
 
 // Mapeamento de CNPJs para informações das lojas
@@ -260,6 +271,10 @@ export default function HomeScreen() {
   const [currentActivityPage, setCurrentActivityPage] = useState(1);
   const activitiesPerPage = 4;
   const [pageTransition] = useState(new RNAnimated.Value(0));
+  const [currentProductIndex, setCurrentProductIndex] = useState(0);
+  const productScrollRef = useRef<ScrollView>(null);
+  const [showProductModal, setShowProductModal] = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState<TopSellingProduct | null>(null);
 
 
   const avatars: AvatarKey[] = [1, 2, 3, 4, 5, 6, 7, 8, 9];
@@ -282,6 +297,22 @@ export default function HomeScreen() {
       // A navegação será feita automaticamente pelo contexto
     } catch (error) {
       console.error('Erro ao fazer logout:', error);
+    }
+  };
+
+  const handleOpenReportChannel = async () => {
+    try {
+      const url = 'https://www.contatoseguro.com.br/grupoginseng';
+      const supported = await Linking.canOpenURL(url);
+      
+      if (supported) {
+        await Linking.openURL(url);
+      } else {
+        Alert.alert('Erro', 'Não foi possível abrir o canal de denúncias. Verifique se você tem um navegador instalado.');
+      }
+    } catch (error) {
+      console.error('Erro ao abrir canal de denúncias:', error);
+      Alert.alert('Erro', 'Não foi possível abrir o canal de denúncias.');
     }
   };
 
@@ -424,16 +455,35 @@ export default function HomeScreen() {
   const loadTopSellingProducts = async () => {
     try {
       setLoading(true);
+      
+      // Buscar dados dos produtos mais vendidos
       const response = await fetch('https://api.grupoginseng.com.br/bestsellers');
       const data: BestSellerResponse = await response.json();
       
-      const mappedProducts = data.bestsellers.map((product, index) => ({
-        code: product.code,
-        description: product.descricao,
-        image: `https://sgi.e-boticario.com.br/Paginas/Imagens/Produtos/${product.code}g.jpg`,
-        totalSales: product.vendas,
-        position: index + 1 // Posição baseada no índice da array (1° mais vendido, 2° mais vendido, etc.)
-      }));
+      // Buscar dados de promoções das lojas base
+      const promotionsData = await fetchPromotionsData();
+      
+      const mappedProducts = data.bestsellers.map((product, index) => {
+        const vdPromotionData = promotionsData.vd[product.code];
+        const ljPromotionData = promotionsData.lj[product.code];
+        
+        return {
+          code: product.code,
+          description: product.descricao,
+          image: `https://sgi.e-boticario.com.br/Paginas/Imagens/Produtos/${product.code}g.jpg`,
+          totalSales: product.vendas,
+          position: index + 1, // Posição baseada no índice da array (1° mais vendido, 2° mais vendido, etc.)
+          promotions: vdPromotionData?.promotions_description ? [{
+            description: vdPromotionData.promotions_description,
+            discountPercent: processDiscountPercent(vdPromotionData.promotions_discountpercent)
+          }] : [],
+          storePromotions: ljPromotionData?.promotions_description ? [{
+            description: ljPromotionData.promotions_description,
+            discountPercent: processDiscountPercent(ljPromotionData.promotions_discountpercent)
+          }] : [],
+          launch: vdPromotionData?.launch || ''
+        };
+      });
 
       setTopSellingProducts(mappedProducts);
     } catch (error) {
@@ -738,6 +788,149 @@ export default function HomeScreen() {
     }
   };
 
+  // Função para abrir modal do produto
+  const handleProductPress = (product: TopSellingProduct) => {
+    setSelectedProduct(product);
+    setShowProductModal(true);
+  };
+
+  // Funções para navegação dos produtos
+  const goToNextProduct = () => {
+    if (currentProductIndex < topSellingProducts.length - 1) {
+      const nextIndex = currentProductIndex + 1;
+      setCurrentProductIndex(nextIndex);
+      productScrollRef.current?.scrollTo({
+        x: nextIndex * 132, // 120 + 12 de margin (25% menor)
+        animated: true
+      });
+    }
+  };
+
+  const goToPreviousProduct = () => {
+    if (currentProductIndex > 0) {
+      const prevIndex = currentProductIndex - 1;
+      setCurrentProductIndex(prevIndex);
+      productScrollRef.current?.scrollTo({
+        x: prevIndex * 132, // 120 + 12 de margin (25% menor)
+        animated: true
+      });
+    }
+  };
+
+  // Função para processar descontos que podem vir com múltiplos valores
+  const processDiscountPercent = (discountValue: any): string => {
+    if (!discountValue) return '0%';
+    
+    // Converter para string para processar
+    const discountStr = String(discountValue).trim();
+    
+    // Se contém "|", é múltiplos valores
+    if (discountStr.includes('|')) {
+      const values = discountStr
+        .split('|')
+        .map(val => Number(val.trim()))
+        .filter(val => !isNaN(val) && val > 0);
+      
+      // Retornar todos os valores formatados como "18%, 17%"
+      return values.length > 0 
+        ? values.map(val => `${val}%`).join(', ')
+        : '0%';
+    }
+    
+    // Se é um valor único, converter e formatar
+    const singleValue = Number(discountStr);
+    return !isNaN(singleValue) ? `${singleValue}%` : '0%';
+  };
+
+  // Função para buscar dados de promoções das lojas base (VD e LJ)
+  const fetchPromotionsData = async (): Promise<{ 
+    vd: { [key: string]: InventoryItemType };
+    lj: { [key: string]: InventoryItemType };
+  }> => {
+    try {
+      // Função auxiliar para buscar todas as páginas de uma loja
+      const fetchAllPages = async (lojaId: string): Promise<any[]> => {
+        let allData: any[] = [];
+        let currentPage = 1;
+        let totalPages = 1;
+
+        do {
+          const response = await fetch(`https://api.grupoginseng.com.br/tabela/draft/${lojaId}?pagina=${currentPage}`);
+          const data = await response.json();
+          
+          if (data.data && Array.isArray(data.data)) {
+            allData = [...allData, ...data.data];
+          }
+          
+          // Atualizar informações de paginação
+          totalPages = data.total_paginas || 1;
+          currentPage++;
+          
+          // Pequeno delay para não sobrecarregar a API
+          if (currentPage <= totalPages) {
+            await new Promise(resolve => setTimeout(resolve, 100));
+          }
+          
+        } while (currentPage <= totalPages);
+
+        return allData;
+      };
+
+      // Buscar todas as páginas das duas lojas
+      console.log('🔄 Buscando promoções de todas as páginas...');
+      const [vdAllData, ljAllData] = await Promise.all([
+        fetchAllPages('20998'), // VD
+        fetchAllPages('4560')   // LJ
+      ]);
+      
+      console.log(`📊 VD: ${vdAllData.length} produtos carregados`);
+      console.log(`📊 LJ: ${ljAllData.length} produtos carregados`);
+      
+      // Criar mapas de código -> produto com promoções
+      const vdPromotionsMap: { [key: string]: InventoryItemType } = {};
+      const ljPromotionsMap: { [key: string]: InventoryItemType } = {};
+      
+      // Processar dados da loja VD (20998)
+      vdAllData.forEach((item: any) => {
+        if (item.code) {
+          vdPromotionsMap[item.code] = {
+            code: item.code,
+            description: item.description || '',
+            promotions_description: item.promotions_description,
+            promotions_discountpercent: item.promotions_discountpercent,
+            launch: item.launch ? 'Lançamento' : ''
+          };
+        }
+      });
+      
+      // Processar dados da loja LJ (4560)
+      ljAllData.forEach((item: any) => {
+        if (item.code) {
+          ljPromotionsMap[item.code] = {
+            code: item.code,
+            description: item.description || '',
+            promotions_description: item.promotions_description,
+            promotions_discountpercent: item.promotions_discountpercent,
+            launch: item.launch ? 'Lançamento' : ''
+          };
+        }
+      });
+      
+      console.log(`✅ Promoções carregadas - VD: ${Object.keys(vdPromotionsMap).length} produtos, LJ: ${Object.keys(ljPromotionsMap).length} produtos`);
+      
+      return {
+        vd: vdPromotionsMap,
+        lj: ljPromotionsMap
+      };
+    } catch (error) {
+      console.error('Erro ao buscar dados de promoções:', error);
+      return {
+        vd: {},
+        lj: {}
+      };
+    }
+  };
+
   // Componente para animar porcentagens
   const AnimatedPercentage = ({ value, delay = 0 }: { value: string | undefined; delay?: number }) => {
     if (!value) {
@@ -784,9 +977,9 @@ export default function HomeScreen() {
         <View style={styles.headerRight}>
           <TouchableOpacity 
             style={styles.iconButton} 
-            onPress={() => router.push('/profile')}
+            onPress={handleOpenReportChannel}
           >
-            <UserCircle size={22} color={Colors.white} />
+            <ShieldAlert size={22} color={Colors.white} />
           </TouchableOpacity>
           <TouchableOpacity 
             style={styles.iconButton} 
@@ -794,9 +987,18 @@ export default function HomeScreen() {
           >
             <MessageSquare size={22} color={Colors.white} />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.iconButton} onPress={handleLogout}>
-            <LogOut size={22} color={Colors.white} />
+          <TouchableOpacity 
+            style={styles.iconButton} 
+            onPress={() => router.push('/profile')}
+          >
+            <Settings size={22} color={Colors.white} />
           </TouchableOpacity>
+          {/* Botão de Logout - INATIVO */}
+          {false && (
+            <TouchableOpacity style={styles.iconButton} onPress={handleLogout}>
+              <LogOut size={22} color={Colors.white} />
+            </TouchableOpacity>
+          )}
         </View>
       </View>
 
@@ -905,64 +1107,217 @@ export default function HomeScreen() {
         </Pressable>
       </Modal>
 
+      {/* Modal de Detalhes do Produto */}
+      <Modal
+        visible={showProductModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowProductModal(false)}
+      >
+        <Pressable 
+          style={styles.modalOverlay}
+          onPress={() => setShowProductModal(false)}
+        >
+          <View style={styles.productModalContent}>
+            <Pressable onPress={(e) => e.stopPropagation()}>
+              <View style={styles.productModalHeader}>
+                <Text style={styles.productModalTitle}>Detalhes do Produto</Text>
+                <TouchableOpacity 
+                  onPress={() => setShowProductModal(false)}
+                  style={styles.closeButton}
+                >
+                  <Text style={styles.closeButtonText}>✕</Text>
+                </TouchableOpacity>
+              </View>
+              
+              {selectedProduct && (
+                <View style={styles.productModalBody}>
+                  {/* Header com imagem e info básica */}
+                  <View style={styles.productModalHeaderSection}>
+                    <CachedImage 
+                      uri={selectedProduct.image}
+                      style={styles.productModalImageLarge}
+                      resizeMode="contain"
+                    />
+                    <View style={styles.productModalHeaderInfo}>
+                                             <View style={styles.productModalBadgeContainer}>
+                         <View style={styles.productModalRankBadge}>
+                           <Text style={styles.productModalRankText}>#{selectedProduct.position}</Text>
+                         </View>
+                         {selectedProduct.promotions && selectedProduct.promotions.length > 0 && (
+                           <View style={styles.productModalPromoBadge}>
+                             <Text style={styles.productModalPromoText}>PROMOÇÃO</Text>
+                           </View>
+                         )}
+                         {selectedProduct.launch && (
+                           <View style={styles.productModalLaunchBadge}>
+                             <Text style={styles.productModalLaunchText}>{selectedProduct.launch.toUpperCase()}</Text>
+                           </View>
+                         )}
+                       </View>
+                      <Text style={styles.productModalCodeNew}>{selectedProduct.code}</Text>
+                    </View>
+                  </View>
 
+                  {/* Descrição do produto */}
+                  <View style={styles.productModalDescriptionSection}>
+                    <Text style={styles.productModalDescriptionTitle}>Descrição</Text>
+                    <Text style={styles.productModalDescriptionText}>
+                      {selectedProduct.description}
+                    </Text>
+                  </View>
 
+                  {/* Estatísticas em cards */}
+                  <View style={[
+                    styles.productModalStatsSection,
+                    // Só adiciona borda inferior se houver promoções
+                    ((selectedProduct.promotions && selectedProduct.promotions.length > 0) || 
+                     (selectedProduct.storePromotions && selectedProduct.storePromotions.length > 0)) && 
+                    styles.productModalStatsSectionWithBorder
+                  ]}>
+                    <View style={styles.productModalStatCard}>
+                      <Text style={styles.productModalStatNumber}>{selectedProduct.totalSales}</Text>
+                      <Text style={styles.productModalStatLabelNew}>Vendas Totais</Text>
+                    </View>
+                    <View style={styles.productModalStatCard}>
+                      <Text style={styles.productModalStatNumber}>#{selectedProduct.position}</Text>
+                      <Text style={styles.productModalStatLabelNew}>Posição no Ranking</Text>
+                    </View>
+                  </View>
+
+                                    {/* Promoções ativas */}
+                  {((selectedProduct.promotions && selectedProduct.promotions.length > 0) || 
+                    (selectedProduct.storePromotions && selectedProduct.storePromotions.length > 0)) && (
+                    <View style={styles.productModalPromotionsSection}>
+                      <Text style={styles.productModalSectionTitle}>🎉 Promoções Ativas</Text>
+                      <View style={styles.productModalPromotionsGrid}>
+                        {/* Card VD */}
+                        <View style={styles.productModalDiscountCard}>
+                          <Text style={styles.productModalDiscountSource}>VD</Text>
+                          {selectedProduct.promotions && selectedProduct.promotions.length > 0 ? (
+                            <>
+                              <Text style={styles.productModalDiscountValue}>{selectedProduct.promotions[0].discountPercent}</Text>
+                              <Text style={styles.productModalDiscountLabel}>OFF</Text>
+                            </>
+                          ) : (
+                            <Text style={styles.productModalDiscountValue}>-</Text>
+                          )}
+                        </View>
+                        
+                        {/* Card LJ */}
+                        <View style={styles.productModalDiscountCard}>
+                          <Text style={styles.productModalDiscountSource}>Loja</Text>
+                          {selectedProduct.storePromotions && selectedProduct.storePromotions.length > 0 ? (
+                            <>
+                              <Text style={styles.productModalDiscountValue}>{selectedProduct.storePromotions[0].discountPercent}</Text>
+                              <Text style={styles.productModalDiscountLabel}>OFF</Text>
+                            </>
+                          ) : (
+                            <Text style={styles.productModalDiscountValue}>-</Text>
+                          )}
+                        </View>
+                      </View>
+                    </View>
+                  )}
+                </View>
+              )}
+            </Pressable>
+          </View>
+        </Pressable>
+      </Modal>
+
+      {/* Seção Mais vendidos - FIXA */}
+      <Animated.View entering={FadeInDown.duration(400).delay(100)} style={styles.fixedTopSellingSection}>
+        <View style={styles.topSellingHeaderSimple}>
+          <Text style={styles.sectionTitle}>Mais vendidos</Text>
+        </View>
+        {loading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color={Colors.primary[500]} />
+          </View>
+        ) : (
+          <View style={styles.topSellingWithArrows}>
+            {/* Seta Esquerda - Só aparece se não estiver no primeiro produto */}
+            {currentProductIndex > 0 && (
+              <TouchableOpacity 
+                style={[
+                  styles.arrowButton,
+                  styles.leftArrow
+                ]}
+                onPress={goToPreviousProduct}
+              >
+                                  <ChevronLeft 
+                    size={14} 
+                    color={Colors.white} 
+                  />
+              </TouchableOpacity>
+            )}
+
+                          <ScrollView 
+                ref={productScrollRef}
+                horizontal 
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.topSellingContainer}
+                style={{ backgroundColor: 'transparent', height: 190 }}
+                scrollEnabled={true}
+                onScroll={(event) => {
+                  const scrollX = event.nativeEvent.contentOffset.x;
+                  const newIndex = Math.round(scrollX / 132);
+                  if (newIndex !== currentProductIndex && newIndex >= 0 && newIndex < topSellingProducts.length) {
+                    setCurrentProductIndex(newIndex);
+                  }
+                }}
+                scrollEventThrottle={16}
+              >
+                              {topSellingProducts.map((product, index) => (
+                  <TouchableOpacity 
+                    key={product.code}
+                    style={styles.topSellingItem}
+                    onPress={() => handleProductPress(product)}
+                  >
+                  <CachedImage 
+                    uri={product.image}
+                    style={styles.topSellingImage}
+                  />
+                                      <View style={styles.productInfo}>
+                      <Text style={styles.productCode}>{product.code}</Text>
+                      <Text style={styles.productDescription} numberOfLines={2}>
+                        {product.description}
+                      </Text>
+                    </View>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+
+            {/* Seta Direita - Só aparece se não estiver no último produto */}
+            {currentProductIndex < topSellingProducts.length - 1 && (
+              <TouchableOpacity 
+                style={[
+                  styles.arrowButton,
+                  styles.rightArrow
+                ]}
+                onPress={goToNextProduct}
+              >
+                                  <ChevronRight 
+                    size={14} 
+                    color={Colors.white} 
+                  />
+              </TouchableOpacity>
+            )}
+          </View>
+        )}
+      </Animated.View>
+
+      {/* Conteúdo rolável */}
       <ScrollView 
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Mais vendidos - Primeiro */}
-        <Animated.View entering={FadeInDown.duration(400).delay(100)}>
-          <View style={styles.topSellingHeader}>
-            <Text style={styles.sectionTitle}>Mais vendidos</Text>
-            <View style={styles.slideButton}>
-              <Text style={styles.slideButtonText}>Deslize para ver mais</Text>
-              <ChevronRight size={16} color={Colors.neutral[500]} />
-            </View>
-          </View>
-          {loading ? (
-            <View style={styles.loadingContainer}>
-              <ActivityIndicator size="large" color={Colors.primary[500]} />
-            </View>
-          ) : (
-            <ScrollView 
-              horizontal 
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.topSellingContainer}
-              style={{ backgroundColor: 'transparent' }}
-            >
-              {topSellingProducts.map((product, index) => (
-                <TouchableOpacity 
-                  key={product.code}
-                  style={styles.topSellingItem}
-                  onPress={() => router.push({
-                    pathname: '/(tabs)/inventory',
-                    params: { selectedProduct: product.code }
-                  })}
-                >
-                  <CachedImage 
-                    uri={product.image}
-                    style={styles.topSellingImage}
-                  />
-                  <View style={styles.productInfo}>
-                    <Text style={styles.productCode}>{product.code}</Text>
-                    <Text style={styles.productDescription} numberOfLines={2}>
-                      {product.description}
-                    </Text>
-                    <Text style={styles.totalSales}>
-                      {product.totalSales} vendas
-                    </Text>
-                  </View>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-          )}
-        </Animated.View>
 
         {/* Últimos Comunicados - Segundo */}
-        <Animated.View entering={FadeInDown.duration(400).delay(200)}>
-          <Text style={styles.sectionTitle}>Últimos Comunicados</Text>
+        <Animated.View entering={FadeInDown.duration(400).delay(200)} style={styles.communicationsSection}>
+          <Text style={styles.sectionTitleWithMargin}>Últimos Comunicados</Text>
           <View style={styles.activitiesContainer}>
             {loadingToken || loadingCommunications ? (
               <View style={styles.loadingContainer}>
@@ -993,95 +1348,97 @@ export default function HomeScreen() {
           </View>
         </Animated.View>
 
-        {/* Atividades recentes - Terceiro */}
-        <Animated.View entering={FadeInDown.duration(400).delay(300)}>
-          <View style={styles.activitiesHeader}>
-            <Text style={styles.sectionTitle}>Últimos Faturamentos</Text>
-            {!loadingActivities && recentActivities.length > 0 && (
-              <Text style={styles.activitiesCount}>
-                {recentActivities.length} atividades
-              </Text>
-            )}
-          </View>
-          
-          <View style={styles.activitiesContainer}>
-            {loadingActivities ? (
-              <View style={styles.loadingContainer}>
-                <ActivityIndicator size="large" color={Colors.primary[500]} />
-              </View>
-            ) : (
-              <>
-                <RNAnimated.View 
-                  style={[
-                    styles.activitiesAnimatedContainer,
-                    {
-                      transform: [{ translateX: pageTransition }]
-                    }
-                  ]}
-                >
-                  {currentActivities.map((activity, index) => (
-                    <TouchableOpacity key={activity.id} style={styles.activityCard}>
-                      <View style={[styles.activityIconContainer, { backgroundColor: Colors.success[50] }]}>
-                        <Truck size={20} color={Colors.success[500]} />
-                      </View>
-                      <View style={styles.activityInfo}>
-                        <Text style={styles.activityTitle}>
-                          Faturamento realizado para :
-                        </Text>
-                        <Text style={styles.activityLojaName}>
-                          {activity.lojaInfo}
-                        </Text>
-                        <Text style={styles.activityDescription}>
-                          Data Faturamento: {activity.dataEmissao}
-                        </Text>
-                        <Text style={styles.activityDescription}>
-                          Previsão de entrega: {activity.previsaoEntrega}
-                        </Text>
-                      </View>
-                      <Text style={styles.activityTime}>NF {activity.numeroFatura}</Text>
-                    </TouchableOpacity>
-                  ))}
-                </RNAnimated.View>
+        {/* Atividades recentes - Terceiro - INATIVO */}
+        {false && (
+          <Animated.View entering={FadeInDown.duration(400).delay(300)}>
+            <View style={styles.activitiesHeader}>
+              <Text style={styles.sectionTitle}>Últimos Faturamentos</Text>
+              {!loadingActivities && recentActivities.length > 0 && (
+                <Text style={styles.activitiesCount}>
+                  {recentActivities.length} atividades
+                </Text>
+              )}
+            </View>
+            
+            <View style={styles.activitiesContainer}>
+              {loadingActivities ? (
+                <View style={styles.loadingContainer}>
+                  <ActivityIndicator size="large" color={Colors.primary[500]} />
+                </View>
+              ) : (
+                <>
+                  <RNAnimated.View 
+                    style={[
+                      styles.activitiesAnimatedContainer,
+                      {
+                        transform: [{ translateX: pageTransition }]
+                      }
+                    ]}
+                  >
+                    {currentActivities.map((activity, index) => (
+                      <TouchableOpacity key={activity.id} style={styles.activityCard}>
+                        <View style={[styles.activityIconContainer, { backgroundColor: Colors.success[50] }]}>
+                          <Truck size={20} color={Colors.success[500]} />
+                        </View>
+                        <View style={styles.activityInfo}>
+                          <Text style={styles.activityTitle}>
+                            Faturamento realizado para :
+                          </Text>
+                          <Text style={styles.activityLojaName}>
+                            {activity.lojaInfo}
+                          </Text>
+                          <Text style={styles.activityDescription}>
+                            Data Faturamento: {activity.dataEmissao}
+                          </Text>
+                          <Text style={styles.activityDescription}>
+                            Previsão de entrega: {activity.previsaoEntrega}
+                          </Text>
+                        </View>
+                        <Text style={styles.activityTime}>NF {activity.numeroFatura}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </RNAnimated.View>
 
-                {/* Paginação */}
-                {totalActivityPages > 1 && (
-                  <View style={styles.paginationContainer}>
-                    <TouchableOpacity 
-                      style={[
-                        styles.paginationButton, 
-                        currentActivityPage === 1 && styles.paginationButtonDisabled
-                      ]}
-                      onPress={goToPreviousActivityPage}
-                      disabled={currentActivityPage === 1}
-                    >
-                      <ChevronLeft size={16} color={currentActivityPage === 1 ? Colors.neutral[400] : Colors.primary[500]} />
-                    </TouchableOpacity>
+                  {/* Paginação */}
+                  {totalActivityPages > 1 && (
+                    <View style={styles.paginationContainer}>
+                      <TouchableOpacity 
+                        style={[
+                          styles.paginationButton, 
+                          currentActivityPage === 1 && styles.paginationButtonDisabled
+                        ]}
+                        onPress={goToPreviousActivityPage}
+                        disabled={currentActivityPage === 1}
+                      >
+                        <ChevronLeft size={16} color={currentActivityPage === 1 ? Colors.neutral[400] : Colors.primary[500]} />
+                      </TouchableOpacity>
 
-                    <View style={styles.paginationInfo}>
-                      <Text style={styles.paginationText}>
-                        {currentActivityPage} de {totalActivityPages}
-                      </Text>
-                      <Text style={styles.paginationSubtext}>
-                        {startIndex + 1}-{Math.min(endIndex, recentActivities.length)} de {recentActivities.length}
-                      </Text>
+                      <View style={styles.paginationInfo}>
+                        <Text style={styles.paginationText}>
+                          {currentActivityPage} de {totalActivityPages}
+                        </Text>
+                        <Text style={styles.paginationSubtext}>
+                          {startIndex + 1}-{Math.min(endIndex, recentActivities.length)} de {recentActivities.length}
+                        </Text>
+                      </View>
+
+                      <TouchableOpacity 
+                        style={[
+                          styles.paginationButton, 
+                          currentActivityPage === totalActivityPages && styles.paginationButtonDisabled
+                        ]}
+                        onPress={goToNextActivityPage}
+                        disabled={currentActivityPage === totalActivityPages}
+                      >
+                        <ChevronRight size={16} color={currentActivityPage === totalActivityPages ? Colors.neutral[400] : Colors.primary[500]} />
+                      </TouchableOpacity>
                     </View>
-
-                    <TouchableOpacity 
-                      style={[
-                        styles.paginationButton, 
-                        currentActivityPage === totalActivityPages && styles.paginationButtonDisabled
-                      ]}
-                      onPress={goToNextActivityPage}
-                      disabled={currentActivityPage === totalActivityPages}
-                    >
-                      <ChevronRight size={16} color={currentActivityPage === totalActivityPages ? Colors.neutral[400] : Colors.primary[500]} />
-                    </TouchableOpacity>
-                  </View>
-                )}
-              </>
-            )}
-          </View>
-        </Animated.View>
+                  )}
+                </>
+              )}
+            </View>
+          </Animated.View>
+        )}
 
 
 
@@ -1149,6 +1506,15 @@ const styles = StyleSheet.create({
     height: '100%',
     
   },
+  fixedTopSellingSection: {
+    paddingHorizontal: 12, // 25% menor (16 * 0.75 = 12)
+    backgroundColor: Colors.white,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.neutral[100],
+    paddingBottom: 8, // Reduzido para menos espaço embaixo
+    paddingTop: 8, // Adicionado padding top menor
+    minHeight: 220, // Reduzido para compactar mais
+  },
   scrollView: {
     flex: 1,
   },
@@ -1160,9 +1526,20 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter-SemiBold',
     fontSize: 16,
     color: Colors.neutral[900],
-    marginTop: 24,
-    marginBottom: 16,
+    marginTop: 0, // Remove margin top do título na seção fixa
+    marginBottom: 0, // Remove margin bottom do título na seção fixa
     fontWeight: 'bold',
+  },
+  sectionTitleWithMargin: {
+    fontFamily: 'Inter-SemiBold',
+    fontSize: 16,
+    color: Colors.neutral[900],
+    marginTop: 24, // Espaço em cima para separar dos cards
+    marginBottom: 16, // Espaço embaixo normal
+    fontWeight: 'bold',
+  },
+  communicationsSection: {
+    marginTop: 0, // Container sem margin extra
   },
   cardsContainer: {
     gap: 16,
@@ -1224,23 +1601,64 @@ const styles = StyleSheet.create({
     marginTop: 8,
     marginBottom: 16,
   },
-  slideButton: {
+  topSellingHeaderSimple: {
+    marginTop: 0, // Remove espaço em cima do título
+    marginBottom: 8, // Reduz espaço embaixo do título
+  },
+  topSellingWithArrows: {
+    position: 'relative',
+    alignItems: 'center',
+    height: 190, // Reduzido para menos espaço
+    marginTop: 0, // Remove margin top
+  },
+  arrowButton: {
+    position: 'absolute',
+    width: 21, // 25% menor (28 * 0.75 = 21)
+    height: 21, // 25% menor (28 * 0.75 = 21)
+    borderRadius: 11, // 25% menor (14 * 0.75 = 10.5 ≈ 11)
+    backgroundColor: 'rgba(4, 80, 107, 0.8)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 10,
+    top: '40%',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.15,
+    shadowRadius: 2,
+    elevation: 3,
+  },
+  leftArrow: {
+    left: 6, // 25% menor (8 * 0.75 = 6)
+  },
+  rightArrow: {
+    right: 6, // 25% menor (8 * 0.75 = 6)
+  },
+  arrowButtonDisabled: {
+    backgroundColor: 'rgba(156, 163, 175, 0.6)',
+    opacity: 0.5,
+  },
+  navigationButtons: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    backgroundColor: Colors.neutral[100],
-    borderRadius: 16,
+    gap: 8,
   },
-  slideButtonText: {
-    fontFamily: 'Inter-Medium',
-    fontSize: 10,
-    color: Colors.neutral[500],
+  navButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: Colors.primary[50],
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: Colors.primary[200],
+  },
+  navButtonDisabled: {
+    backgroundColor: Colors.neutral[50],
+    borderColor: Colors.neutral[200],
   },
 
   loadingContainer: {
-    height: 200,
+    height: 150, // 25% menor (200 * 0.75 = 150)
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -1249,21 +1667,19 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
   },
   topSellingItem: {
-    width: 160,
-    marginRight: 16,
+    width: 120, // 25% menor (160 * 0.75 = 120)
+    marginRight: 12, // 25% menor (16 * 0.75 = 12)
     backgroundColor: Colors.neutral[50],
-    borderRadius: 30,
-    padding: 16,
+    borderRadius: 23, // 25% menor (30 * 0.75 = 22.5 ≈ 23)
+    padding: 12, // 25% menor (16 * 0.75 = 12)
     borderWidth: 1,
     borderColor: Colors.neutral[200],
-
-
   },
   topSellingImage: {
     width: '100%',
-    height: 140,
-    borderRadius: 12,
-    marginBottom: 12,
+    height: 105, // 25% menor (140 * 0.75 = 105)
+    borderRadius: 9, // 25% menor (12 * 0.75 = 9)
+    marginBottom: 9, // 25% menor (12 * 0.75 = 9)
     borderWidth: 1,
     borderColor: Colors.neutral[200],
   },
@@ -1272,33 +1688,33 @@ const styles = StyleSheet.create({
   },
   productCode: {
     fontFamily: 'Inter-Bold',
-    fontSize: 10,
+    fontSize: 8, // 25% menor (10 * 0.75 = 7.5 ≈ 8)
     color: Colors.neutral[800],
     textAlign: 'center',
-    marginBottom: 6,
+    marginBottom: 5, // 25% menor (6 * 0.75 = 4.5 ≈ 5)
     backgroundColor: Colors.neutral[100],
-    paddingVertical: 4,
-    borderRadius: 6,
+    paddingVertical: 3, // 25% menor (4 * 0.75 = 3)
+    borderRadius: 5, // 25% menor (6 * 0.75 = 4.5 ≈ 5)
     borderWidth: 1,
     borderColor: Colors.neutral[200],
   },
   productDescription: {
     fontFamily: 'Inter-Medium',
-    fontSize: 10,
+    fontSize: 8, // 25% menor (10 * 0.75 = 7.5 ≈ 8)
     color: Colors.neutral[700],
-    marginBottom: 8,
-    lineHeight: 16,
-    minHeight: 32,
+    marginBottom: 6, // 25% menor (8 * 0.75 = 6)
+    lineHeight: 12, // 25% menor (16 * 0.75 = 12)
+    minHeight: 24, // 25% menor (32 * 0.75 = 24)
   },
   totalSales: {
     fontFamily: 'Inter-Bold',
-    fontSize: 10,
+    fontSize: 8, // 25% menor (10 * 0.75 = 7.5 ≈ 8)
     color: Colors.primary[600],
     textAlign: 'center',
     backgroundColor: Colors.primary[50],
-    paddingVertical: 6,
-    paddingHorizontal: 8,
-    borderRadius: 8,
+    paddingVertical: 5, // 25% menor (6 * 0.75 = 4.5 ≈ 5)
+    paddingHorizontal: 6, // 25% menor (8 * 0.75 = 6)
+    borderRadius: 6, // 25% menor (8 * 0.75 = 6)
     borderWidth: 1,
     borderColor: Colors.primary[200],
   },
@@ -1567,6 +1983,214 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter-Regular',
     fontSize: 12,
     color: Colors.neutral[500],
+    marginTop: 2,
+  },
+
+  // Estilos do Modal de Produto - Versão Compacta
+  productModalContent: {
+    backgroundColor: Colors.white,
+    borderRadius: 20, // -4px (24 -> 20)
+    width: '92%',
+    maxWidth: 420,
+    maxHeight: '85%',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.25,
+    shadowRadius: 16,
+    elevation: 10,
+  },
+  productModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 20, // -4px (24 -> 20)
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.neutral[100],
+    backgroundColor: Colors.neutral[50],
+    borderTopLeftRadius: 20, // -4px (24 -> 20)
+    borderTopRightRadius: 20, // -4px (24 -> 20)
+  },
+  productModalTitle: {
+    fontFamily: 'Inter-Bold',
+    fontSize: 14, // -4px (18 -> 14)
+    color: Colors.neutral[900],
+  },
+  productModalBody: {
+    padding: 0,
+  },
+
+  // Header Section com imagem e badges
+  productModalHeaderSection: {
+    alignItems: 'center',
+    padding: 20, // -4px (24 -> 20)
+    backgroundColor: Colors.neutral[50],
+  },
+  productModalImageLarge: {
+    width: 120, // -20px proporcional (140 -> 120)
+    height: 120, // -20px proporcional (140 -> 120)
+    borderRadius: 14, // -2px (16 -> 14)
+    backgroundColor: Colors.white,
+    borderWidth: 2,
+    borderColor: Colors.neutral[200],
+    marginBottom: 12, // -4px (16 -> 12)
+  },
+  productModalHeaderInfo: {
+    alignItems: 'center',
+    width: '100%',
+  },
+  productModalBadgeContainer: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 8, // -4px (12 -> 8)
+  },
+  productModalRankBadge: {
+    backgroundColor: Colors.primary[500],
+    paddingHorizontal: 8, // -4px (12 -> 8)
+    paddingVertical: 2, // -4px (6 -> 2)
+    borderRadius: 18, // -2px (20 -> 18)
+  },
+  productModalRankText: {
+    fontFamily: 'Inter-Bold',
+    fontSize: 8, // -4px (12 -> 8)
+    color: Colors.white,
+  },
+  productModalPromoBadge: {
+    backgroundColor: Colors.success[500],
+    paddingHorizontal: 8, // -4px (12 -> 8)
+    paddingVertical: 2, // -4px (6 -> 2)
+    borderRadius: 18, // -2px (20 -> 18)
+  },
+  productModalPromoText: {
+    fontFamily: 'Inter-Bold',
+    fontSize: 6, // -4px (10 -> 6)
+    color: Colors.white,
+  },
+  productModalLaunchBadge: {
+    backgroundColor: Colors.warning[500],
+    paddingHorizontal: 8, // -4px (12 -> 8)
+    paddingVertical: 2, // -4px (6 -> 2)
+    borderRadius: 18, // -2px (20 -> 18)
+  },
+  productModalLaunchText: {
+    fontFamily: 'Inter-Bold',
+    fontSize: 6, // -4px (10 -> 6)
+    color: Colors.white,
+  },
+  productModalCodeNew: {
+    fontFamily: 'Inter-Bold',
+    fontSize: 14, // -4px (18 -> 14)
+    color: Colors.neutral[900],
+    backgroundColor: Colors.white,
+    paddingHorizontal: 12, // -4px (16 -> 12)
+    paddingVertical: 4, // -4px (8 -> 4)
+    borderRadius: 10, // -2px (12 -> 10)
+    borderWidth: 1,
+    borderColor: Colors.neutral[200],
+  },
+
+  // Seção de Descrição
+  productModalDescriptionSection: {
+    padding: 16, // -4px (20 -> 16)
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.neutral[100],
+  },
+  productModalDescriptionTitle: {
+    fontFamily: 'Inter-SemiBold',
+    fontSize: 10, // -4px (14 -> 10)
+    color: Colors.neutral[600],
+    marginBottom: 4, // -4px (8 -> 4)
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  productModalDescriptionText: {
+    fontFamily: 'Inter-Regular',
+    fontSize: 10, // -4px (14 -> 10)
+    color: Colors.neutral[800],
+    lineHeight: 16, // -4px (20 -> 16)
+  },
+
+  // Seção de Estatísticas
+  productModalStatsSection: {
+    flexDirection: 'row',
+    padding: 16, // -4px (20 -> 16)
+    gap: 8, // -4px (12 -> 8)
+  },
+  productModalStatsSectionWithBorder: {
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.neutral[100],
+  },
+  productModalStatCard: {
+    flex: 1,
+    backgroundColor: Colors.white,
+    padding: 12, // -4px (16 -> 12)
+    borderRadius: 14, // -2px (16 -> 14)
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: Colors.neutral[200],
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  productModalStatNumber: {
+    fontFamily: 'Inter-Bold',
+    fontSize: 16, // -4px (20 -> 16)
+    color: Colors.primary[600],
+    marginBottom: 0, // -4px (4 -> 0)
+  },
+  productModalStatLabelNew: {
+    fontFamily: 'Inter-Medium',
+    fontSize: 7, // -4px (11 -> 7)
+    color: Colors.neutral[600],
+    textAlign: 'center',
+  },
+
+  // Seção de Promoções
+  productModalPromotionsSection: {
+    padding: 16, // -4px (20 -> 16)
+  },
+  productModalSectionTitle: {
+    fontFamily: 'Inter-Bold',
+    fontSize: 12, // -4px (16 -> 12)
+    color: Colors.neutral[900],
+    marginBottom: 12, // -4px (16 -> 12)
+  },
+  productModalPromotionsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8, // -4px (12 -> 8)
+    justifyContent: 'center',
+  },
+  productModalDiscountCard: {
+    backgroundColor: Colors.warning[500],
+    paddingHorizontal: 16, // -4px (20 -> 16)
+    paddingVertical: 8, // -4px (12 -> 8)
+    borderRadius: 14, // -2px (16 -> 14)
+    alignItems: 'center',
+    minWidth: 76, // -4px (80 -> 76)
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  productModalDiscountSource: {
+    fontFamily: 'Inter-Bold',
+    fontSize: 6, // Pequeno para identificação
+    color: Colors.white,
+    opacity: 0.8,
+    marginBottom: 2,
+  },
+  productModalDiscountValue: {
+    fontFamily: 'Inter-Black',
+    fontSize: 14, // -4px (18 -> 14)
+    color: Colors.white,
+  },
+  productModalDiscountLabel: {
+    fontFamily: 'Inter-Bold',
+    fontSize: 6, // -4px (10 -> 6)
+    color: Colors.white,
     marginTop: 2,
   },
 

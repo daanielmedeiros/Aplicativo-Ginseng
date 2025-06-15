@@ -8,8 +8,14 @@ export const AUTH_CONFIG = {
   // Tenant ID (ou 'common' para multi-tenant)
   TENANT_ID: '77940b3a-cb7f-46d9-b090-1de03fc08a3a', // ou 'common'
   
-  // Scopes que a aplicação precisa
+  // Scopes que a aplicação precisa - Versão básica funcionando
   SCOPES: ['openid', 'profile', 'email', 'User.Read'],
+  
+  // Scopes completos para calendário (quando admin aprovar)
+  FULL_SCOPES: ['openid', 'profile', 'email', 'User.Read', 'Mail.ReadWrite', 'Group.ReadWrite.All'],
+  
+  // Scopes para autocomplete de usuários e calendário completo
+  AUTOCOMPLETE_SCOPES: ['openid', 'profile', 'email', 'User.Read', 'User.Read.All', 'Mail.ReadWrite', 'Group.ReadWrite.All'],
   
   // Endpoints do Azure AD
   AUTHORITY: 'https://login.microsoftonline.com/',

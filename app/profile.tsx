@@ -14,7 +14,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { router } from 'expo-router';
-import { ArrowLeft, User, Mail, Briefcase, Building, Edit3 } from 'lucide-react-native';
+import { ArrowLeft, User, Mail, Briefcase, Building, Edit3, LogOut } from 'lucide-react-native';
 import Colors from '@/constants/Colors';
 import { useAuth } from '@/contexts/AuthContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -37,7 +37,7 @@ const avatarImages: Record<AvatarKey, any> = {
 const defaultAvatar = require('@/assets/images/avatar/padrao.png');
 
 export default function ProfileScreen() {
-  const { user } = useAuth();
+  const { user, signOut } = useAuth();
   const [selectedAvatar, setSelectedAvatar] = useState<AvatarKey | null>(null);
   const [showAvatarModal, setShowAvatarModal] = useState(false);
 
@@ -79,6 +79,15 @@ export default function ProfileScreen() {
       setShowAvatarModal(false);
     } catch (error) {
       console.error('Erro ao salvar avatar:', error);
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
+      await signOut();
+      // A navegação será feita automaticamente pelo contexto
+    } catch (error) {
+      console.error('Erro ao fazer logout:', error);
     }
   };
 
@@ -134,7 +143,6 @@ export default function ProfileScreen() {
             </TouchableOpacity>
           </View>
           <Text style={styles.userName}>{user?.name || 'Usuário'}</Text>
-          <Text style={styles.userEmail}>{user?.email || 'email@exemplo.com'}</Text>
         </View>
 
         {/* Informações do Perfil */}
@@ -160,38 +168,55 @@ export default function ProfileScreen() {
           />
         </View>
 
-        {/* Informações da Empresa */}
-        <View style={styles.profileSection}>
-          <Text style={styles.sectionTitle}>Informações da Empresa</Text>
-          
-          <ProfileItem 
-            icon={<Building size={20} color={Colors.primary[500]} />}
-            label="Empresa"
-            value="Grupo Ginseng"
-          />
-          
-          <ProfileItem 
-            icon={<User size={20} color={Colors.primary[500]} />}
-            label="ID do Usuário"
-            value={user?.id}
-          />
-        </View>
+        {/* Informações da Empresa - INATIVO */}
+        {false && (
+          <View style={styles.profileSection}>
+            <Text style={styles.sectionTitle}>Informações da Empresa</Text>
+            
+            <ProfileItem 
+              icon={<Building size={20} color={Colors.primary[500]} />}
+              label="Empresa"
+              value="Grupo Ginseng"
+            />
+            
+            <ProfileItem 
+              icon={<User size={20} color={Colors.primary[500]} />}
+              label="ID do Usuário"
+              value={user?.id}
+            />
+          </View>
+        )}
 
-        {/* Dados Técnicos */}
-        <View style={styles.debugSection}>
-          <Text style={styles.debugTitle}>📋 Dados do Sistema</Text>
-          <View style={styles.debugRow}>
-            <Text style={styles.debugLabel}>Nome:</Text>
-            <Text style={styles.debugValue}>{user?.givenName || 'N/A'}</Text>
+        {/* Dados Técnicos - INATIVO */}
+        {false && (
+          <View style={styles.debugSection}>
+            <Text style={styles.debugTitle}>📋 Dados do Sistema</Text>
+            <View style={styles.debugRow}>
+              <Text style={styles.debugLabel}>Nome:</Text>
+              <Text style={styles.debugValue}>{user?.givenName || 'N/A'}</Text>
+            </View>
+            <View style={styles.debugRow}>
+              <Text style={styles.debugLabel}>Sobrenome:</Text>
+              <Text style={styles.debugValue}>{user?.surname || 'N/A'}</Text>
+            </View>
+            <View style={styles.debugRow}>
+              <Text style={styles.debugLabel}>ID:</Text>
+              <Text style={styles.debugValue}>{user?.id || 'N/A'}</Text>
+            </View>
           </View>
-          <View style={styles.debugRow}>
-            <Text style={styles.debugLabel}>Sobrenome:</Text>
-            <Text style={styles.debugValue}>{user?.surname || 'N/A'}</Text>
-          </View>
-          <View style={styles.debugRow}>
-            <Text style={styles.debugLabel}>ID:</Text>
-            <Text style={styles.debugValue}>{user?.id || 'N/A'}</Text>
-          </View>
+        )}
+
+        {/* Botão de Logout */}
+        <View style={styles.logoutSection}>
+          <TouchableOpacity 
+            style={styles.logoutButton}
+            onPress={handleLogout}
+          >
+            <View style={styles.logoutIcon}>
+              <LogOut size={20} color={Colors.white} />
+            </View>
+            <Text style={styles.logoutText}>Sair da Conta</Text>
+          </TouchableOpacity>
         </View>
       </ScrollView>
 
@@ -460,5 +485,32 @@ const styles = StyleSheet.create({
   avatarOptionImage: {
     width: '100%',
     height: '100%',
+  },
+  logoutSection: {
+    marginTop: 32,
+    marginBottom: 16,
+  },
+  logoutButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    backgroundColor: '#dc2626',
+    borderRadius: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: Platform.OS === 'android' ? 3 : 0,
+  },
+  logoutIcon: {
+    marginRight: 12,
+  },
+  logoutText: {
+    fontFamily: 'Inter-SemiBold',
+    fontSize: 12,
+    color: Colors.white,
+    fontWeight: '600',
   },
 }); 

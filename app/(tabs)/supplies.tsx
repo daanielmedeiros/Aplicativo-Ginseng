@@ -402,10 +402,8 @@ export default function SuppliesScreen() {
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Suprimentos</Text>
         {dataSource && (
-          <View style={[styles.dataSourceIndicator, 
-            { backgroundColor: dataSource === 'cache' ? Colors.neutral[100] : Colors.primary[50] }]}>
-            <Text style={[styles.dataSourceText, 
-              { color: dataSource === 'cache' ? Colors.neutral[600] : Colors.primary[600] }]}>
+          <View style={styles.dataSourceIndicator}>
+            <Text style={styles.dataSourceText}>
               {dataSource === 'cache' ? '📱' : '🌐'}
             </Text>
           </View>
@@ -841,14 +839,9 @@ const styles = StyleSheet.create({
     color: Colors.neutral[400],
   },
   dataSourceIndicator: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
     marginLeft: 8,
   },
   dataSourceText: {
-    fontFamily: 'Inter-Medium',
-    fontSize: 10,
-    fontWeight: 'bold',
+    fontSize: 16,
   },
 }); 

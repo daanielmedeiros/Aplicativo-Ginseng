@@ -1,12 +1,17 @@
 import React from 'react';
 import { Tabs } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { DoorOpen, Chrome as Home, Package, Plus, Settings, Store, BarChart3 } from 'lucide-react-native';
+import { DoorOpen, Home, Package, Plus, Settings, Store, BarChart3 } from 'lucide-react-native';
 import Colors from '@/constants/Colors';
 import { View, TouchableOpacity, Platform } from 'react-native';
+import { useAuth } from '@/contexts/AuthContext';
 
 export default function TabLayout() {
   const insets = useSafeAreaInsets();
+  const { user } = useAuth();
+  
+  // Verificar se o usuário tem acesso às salas (officeLocation = "Escritório")
+  const hasRoomAccess = user?.officeLocation?.toLowerCase() === 'escritorio';
   
   return (
     <Tabs
@@ -82,6 +87,7 @@ export default function TabLayout() {
           tabBarIcon: ({ focused, color, size }) => (
             <DoorOpen size={size} color={color} />
           ),
+          href: hasRoomAccess ? '/analytics' : null,
         }}
       />
     </Tabs>

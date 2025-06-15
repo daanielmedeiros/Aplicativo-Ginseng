@@ -16,6 +16,7 @@ interface User {
   jobTitle?: string;
   givenName?: string;
   surname?: string;
+  officeLocation?: string;
 }
 
 interface AuthContextType {
@@ -34,8 +35,8 @@ const getRedirectUri = () => {
     return 'http://localhost:8081/';
   } else {
     // Para mobile (iOS e Android), usar sempre o scheme customizado
-    return 'com.grupoginseng.app://auth';
-    //return 'exp://192.168.0.15:8081';
+    //return 'com.grupoginseng.app://auth';
+    return 'exp://192.168.0.15:8081';
   }
 };
 
@@ -65,7 +66,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [request, response, promptAsync] = AuthSession.useAuthRequest(
     {
       clientId: AUTH_CONFIG.CLIENT_ID,
-      scopes: ['openid', 'profile', 'email', 'User.Read'],
+      scopes: AUTH_CONFIG.AUTOCOMPLETE_SCOPES,
       responseType: AuthSession.ResponseType.Code,
       redirectUri: REDIRECT_URI,
       extraParams: {
@@ -106,6 +107,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
       
       if (storedUser && storedToken) {
         setUser(JSON.parse(storedUser));
+        
+        // Verificar se o token do calendário existe, se não, salvar o token atual
+        const microsoftToken = await AsyncStorage.getItem('microsoftToken');
+        if (!microsoftToken) {
+          await AsyncStorage.setItem('microsoftToken', storedToken);
+        }
       }
     } catch (error) {
       console.error('Erro ao carregar dados salvos:', error);
@@ -140,6 +147,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
           await AsyncStorage.setItem('@auth_token', tokenResponse.accessToken);
           await AsyncStorage.setItem('@auth_user', JSON.stringify(userInfo));
           
+          // Salvar token específico para Microsoft Graph (calendário)
+          await AsyncStorage.setItem('microsoftToken', tokenResponse.accessToken);
+          
           setUser(userInfo);
         }
       } catch (error) {
@@ -170,6 +180,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         jobTitle: userData.jobTitle,
         givenName: userData.givenName,
         surname: userData.surname,
+        officeLocation: userData.officeLocation,
       };
     } catch (error) {
       console.error('Erro ao buscar informações do usuário:', error);
@@ -194,6 +205,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       // Remover dados salvos
       await AsyncStorage.removeItem('@auth_token');
       await AsyncStorage.removeItem('@auth_user');
+      await AsyncStorage.removeItem('microsoftToken'); // Limpar token do calendário
       
       setUser(null);
       

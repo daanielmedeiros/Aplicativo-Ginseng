@@ -67,7 +67,7 @@ interface InventoryItemType {
   coverageDays: number;
   hasCoverage: boolean;
   salles: number;
-  promotions: { description: string; discountPercent: number }[];
+  promotions: { description: string; discountPercent: string }[];
   launch: string;
   brandGroupCode: string;
   critico: string;
@@ -186,6 +186,31 @@ export default function InventoryScreen() {
   const [currentCycle, setCurrentCycle] = useState('');
   const [selectedLaunch, setSelectedLaunch] = useState('Todos os Lançamentos');
 
+  // Função para processar descontos que podem vir com múltiplos valores
+  const processDiscountPercent = (discountValue: any): string => {
+    if (!discountValue) return '0%';
+    
+    // Converter para string para processar
+    const discountStr = String(discountValue).trim();
+    
+    // Se contém "|", é múltiplos valores
+    if (discountStr.includes('|')) {
+      const values = discountStr
+        .split('|')
+        .map(val => Number(val.trim()))
+        .filter(val => !isNaN(val) && val > 0);
+      
+      // Retornar todos os valores formatados como "18%, 17%"
+      return values.length > 0 
+        ? values.map(val => `${val}%`).join(', ')
+        : '0%';
+    }
+    
+    // Se é um valor único, converter e formatar
+    const singleValue = Number(discountStr);
+    return !isNaN(singleValue) ? `${singleValue}%` : '0%';
+  };
+
   // Função para carregar os produtos do PDV selecionado
   const loadInventoryData = async (pdvCode: string) => {
     try {
@@ -273,7 +298,7 @@ export default function InventoryScreen() {
           launch: item.launch && `Lançamento ${item.launch}` || '',
           promotions: item.promotions_description ? [{
             description: item.promotions_description,
-            discountPercent: Number(item.promotions_discountpercent || 0)
+            discountPercent: processDiscountPercent(item.promotions_discountpercent)
           }] : [],
           brandGroupCode: item.brandgroupcode || ''
         };

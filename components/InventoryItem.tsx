@@ -23,7 +23,7 @@ interface InventoryItemProps {
     daysWithoutSales?: number;
     promotions?: {
       description: string;
-      discountPercent: number;
+      discountPercent: string;
     }[];
   };
   expanded?: boolean;
@@ -136,7 +136,7 @@ export function InventoryItem({ item, expanded = false, onPress }: InventoryItem
                 <View key={index} style={styles.promotionItem}>
                   <Text style={styles.promotionDescription}>{promo.description}</Text>
                   <Text style={styles.promotionDiscount}>
-                    Desconto: {promo.discountPercent}%
+                    Desconto: {promo.discountPercent}
                   </Text>
                 </View>
               ))}
